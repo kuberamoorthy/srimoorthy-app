@@ -1,0 +1,1274 @@
+<!DOCTYPE html>
+<html lang="en" data-mode="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="description" content="Sri Moorthy Transport - Fleet Management, Billing & Fuel Tracking App">
+    <meta name="theme-color" content="#090D16">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Sri Moorthy Transport | Fleet Operations Control Center</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" href="https://mr-vishal-dev.github.io/kuberatravels/logo.png">
+    <link rel="apple-touch-icon" href="https://mr-vishal-dev.github.io/kuberatravels/logo.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Outfit:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css?v=28">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <!-- Splash Screen -->
+    <div id="splashScreen" class="splash-screen" title="Tap to continue">
+        <div class="splash-content">
+            <div class="splash-logo-ring">
+                <img src="https://mr-vishal-dev.github.io/kuberatravels/logo.png" alt="Sri Moorthy Logo" class="splash-logo" onerror="this.onerror=null;this.parentElement.classList.add('has-fallback-icon');this.style.display='none';">
+                <div class="splash-logo-fallback">
+                    <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="#FF6B00" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 8"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg>
+                </div>
+            </div>
+            <h1 class="splash-title">
+                <span class="splash-brand-sri">Sri</span>
+                <span class="splash-brand-moorthy">Moorthy</span>
+            </h1>
+            <p class="splash-subtitle">TRANSPORT & LOGISTICS</p>
+            <div class="splash-loader">
+                <div class="splash-loader-bar"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- App Container -->
+    <div id="app" class="app-container" style="display:none;">
+        
+        <!-- Header -->
+        <header class="app-header" id="appHeader">
+            <div class="header-left">
+                <div class="header-logo-wrap">
+                    <img src="https://mr-vishal-dev.github.io/kuberatravels/logo.png" alt="Sri Moorthy Fleet Logo" class="header-logo">
+                    <span class="header-status-pulse" title="Fleet System Active"></span>
+                </div>
+                <div class="header-brand">
+                    <div class="brand-title-wrap">
+                        <h1>Sri<span>Moorthy</span></h1>
+                        <span class="brand-badge">FLEET</span>
+                    </div>
+                    <p>Logistics Management</p>
+                </div>
+            </div>
+
+            <div class="header-center" style="display:flex;align-items:center;gap:12px;">
+                <!-- Command Bar Search Trigger -->
+                <div class="header-command-trigger" onclick="openCommandPalette()" title="Press Ctrl+K to open Command Palette">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    <span>Search fleet, bills, trips...</span>
+                    <kbd>Ctrl+K</kbd>
+                </div>
+
+                <!-- Live Fleet Telematics Status -->
+                <div class="header-fleet-telematics-chip">
+                    <span class="telematics-beacon"></span>
+                    <span>3/3 ONLINE</span>
+                    <span class="telematics-sub">• GPS LOCKED</span>
+                </div>
+            </div>
+
+            <div class="header-right">
+                <!-- Desktop Primary Action -->
+                <button type="button" class="header-cta-btn" onclick="openBillModal()" title="Create New Bill">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    <span>+ New Bill</span>
+                </button>
+
+                <!-- Dark / Light Mode Switcher -->
+                <button type="button" class="header-btn" id="modeBtn" onclick="toggleThemeMode()" title="Toggle Dark/Light Mode">
+                    <svg class="mode-icon-sun" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+                    <svg class="mode-icon-moon" style="display:none;" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                </button>
+
+                <button class="header-btn" id="themeBtn" onclick="toggleThemePicker()" title="Theme Accent Color">
+                    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a7 7 0 0 0-7 7c0 2 1.5 3.5 3 4 1.5.5 2 1 2 2.5 0 .8.7 1.5 1.5 1.5h.5a7 7 0 0 0 0-14z"/><circle cx="8" cy="8" r="1.5" fill="currentColor"/><circle cx="12" cy="6" r="1.5" fill="currentColor"/><circle cx="16" cy="8" r="1.5" fill="currentColor"/></svg>
+                </button>
+                <button class="header-btn" id="notifBtn" onclick="toggleNotifications()" title="Notifications">
+                    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                    <span class="notif-dot" id="notifDot"></span>
+                </button>
+                <button class="header-btn menu-toggle-btn" id="menuBtn" onclick="toggleSidebar()" title="Open Navigation Drawer">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="16" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+                </button>
+            </div>
+        </header>
+
+        <!-- Theme Color Picker Popover -->
+        <div class="theme-picker-popover" id="themePickerPopover">
+            <div class="theme-picker-title">
+                <span>Theme Accent</span>
+                <span class="active-name" id="activeThemeName">Orange</span>
+            </div>
+            <div class="theme-swatches-grid">
+                <button type="button" class="theme-swatch-btn orange active" data-color="orange" onclick="setAppThemeColor('orange')" title="Transport Orange"></button>
+                <button type="button" class="theme-swatch-btn blue" data-color="blue" onclick="setAppThemeColor('blue')" title="Electric Blue"></button>
+                <button type="button" class="theme-swatch-btn green" data-color="green" onclick="setAppThemeColor('green')" title="Emerald Green"></button>
+                <button type="button" class="theme-swatch-btn purple" data-color="purple" onclick="setAppThemeColor('purple')" title="Royal Purple"></button>
+                <button type="button" class="theme-swatch-btn red" data-color="red" onclick="setAppThemeColor('red')" title="Crimson Red"></button>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <img src="https://mr-vishal-dev.github.io/kuberatravels/logo.png" alt="Logo" class="sidebar-logo">
+                <div>
+                    <h2>Sri Moorthy</h2>
+                    <p>Transport & Logistics</p>
+                </div>
+                <button class="sidebar-close" onclick="toggleSidebar()">✕</button>
+            </div>
+            <nav class="sidebar-nav">
+                <div class="sidebar-section-label">FLEET NAVIGATION</div>
+                <a href="#" class="sidebar-link active" data-page="dashboard" onclick="navigateTo('dashboard')">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+                    Dashboard
+                </a>
+                <a href="#" class="sidebar-link" data-page="vehicles" onclick="navigateTo('vehicles')">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+                    Vehicles
+                </a>
+                <a href="#" class="sidebar-link" data-page="billing" onclick="navigateTo('billing')">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                    Billing
+                </a>
+                <a href="#" class="sidebar-link" data-page="fuel" onclick="navigateTo('fuel')">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 22V6a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v16"/><path d="M13 10h4a2 2 0 0 1 2 2v8"/><path d="M19 14v-2a2 2 0 0 1 2-2v0a2 2 0 0 1 2 2v6a4 4 0 0 1-4 4H3"/><line x1="3" y1="22" x2="23" y2="22"/></svg>
+                    Fuel Log
+                </a>
+                <a href="#" class="sidebar-link" data-page="reports" onclick="navigateTo('reports')">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                    Reports
+                </a>
+                <a href="https://app.fleetocity.co.in" target="_blank" rel="noopener noreferrer" class="sidebar-link" onclick="closeSidebar();">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="20" y1="12" x2="22" y2="12"/><line x1="2" y1="12" x2="4" y2="12"/></svg>
+                    Live GPS (Fleetocity)
+                    <span class="sidebar-live-tag">LIVE</span>
+                </a>
+
+                <div class="sidebar-section-label">SYSTEM & CLOUD</div>
+                <a href="#" class="sidebar-link" onclick="openSupabaseModal(); closeSidebar();">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>
+                    Supabase Cloud Sync
+                    <span class="sidebar-cloud-tag" id="sidebarCloudTag">Offline</span>
+                </a>
+                <a href="#" class="sidebar-link" onclick="openInstallModal(); closeSidebar();">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+                    Install App / APK
+                    <span class="sidebar-install-tag">GET APP</span>
+                </a>
+
+                <div class="sidebar-section-label">SUPPORT & LINKS</div>
+                <a href="https://srimoorthy.vercel.app" target="_blank" class="sidebar-link">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                    Transport Website
+                </a>
+                <a href="tel:+918940481999" class="sidebar-link">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                    Call: 8940481999
+                </a>
+            </nav>
+            <div class="sidebar-status-box">
+                <div class="sidebar-status-header">
+                    <span>Cloud Architecture</span>
+                    <span class="sidebar-status-ping">● 24ms</span>
+                </div>
+                <div style="font-size:11px;color:var(--text-secondary);display:flex;align-items:center;justify-content:space-between;">
+                    <span>Database Engine</span>
+                    <strong style="color:var(--text-primary);" id="sidebarDbEngine">Supabase Cloud</strong>
+                </div>
+                <button type="button" class="sidebar-mode-toggle" onclick="toggleThemeMode()">
+                    <span class="mode-label-text">Obsidian Dark</span>
+                    <span>🌓</span>
+                </button>
+            </div>
+            <div class="sidebar-theme-wrap">
+                <div class="sidebar-theme-title">
+                    <span>Accent Theme</span>
+                    <span id="sidebarActiveTheme">Orange</span>
+                </div>
+                <div class="theme-swatches-grid">
+                    <button type="button" class="theme-swatch-btn orange active" data-color="orange" onclick="setAppThemeColor('orange')" title="Transport Orange"></button>
+                    <button type="button" class="theme-swatch-btn blue" data-color="blue" onclick="setAppThemeColor('blue')" title="Electric Blue"></button>
+                    <button type="button" class="theme-swatch-btn green" data-color="green" onclick="setAppThemeColor('green')" title="Emerald Green"></button>
+                    <button type="button" class="theme-swatch-btn purple" data-color="purple" onclick="setAppThemeColor('purple')" title="Royal Purple"></button>
+                    <button type="button" class="theme-swatch-btn red" data-color="red" onclick="setAppThemeColor('red')" title="Crimson Red"></button>
+                </div>
+            </div>
+            <div class="sidebar-footer">
+                <p>© 2024 Sri Moorthy Transport</p>
+                <p>Version 1.0.0</p>
+            </div>
+        </aside>
+
+        <!-- Notification Panel -->
+        <div class="notif-panel" id="notifPanel">
+            <div class="notif-header">
+                <h3>Notifications</h3>
+                <button onclick="clearNotifications()">Clear All</button>
+            </div>
+            <div class="notif-list" id="notifList"></div>
+        </div>
+
+        <!-- Main Content -->
+        <main class="main-content" id="mainContent">
+            
+            <!-- ========== DASHBOARD PAGE ========== -->
+            <section class="page active" id="page-dashboard">
+                <div class="page-header">
+                    <div>
+                        <h2 class="page-title">Dashboard</h2>
+                        <p class="page-subtitle">Welcome back! Here's your fleet overview.</p>
+                    </div>
+                    <div class="page-header-actions">
+                        <span class="current-date" id="currentDate"></span>
+                    </div>
+                </div>
+
+                <!-- Live Fleet Telemetry Ticker Ribbon -->
+                <div class="telemetry-ticker-bar">
+                    <div class="ticker-badge"><span class="ticker-live-dot"></span>LIVE FLEET</div>
+                    <div class="ticker-track">
+                        <div class="ticker-content">
+                            <span class="ticker-item"><span class="ticker-dot green"></span><strong>TN68C6003</strong> TATA ACE • Online</span>
+                            <span class="ticker-sep">•</span>
+                            <span class="ticker-item"><span class="ticker-dot green"></span><strong>TN68W2419</strong> TATA ACE • Ready</span>
+                            <span class="ticker-sep">•</span>
+                            <span class="ticker-item"><span class="ticker-dot green"></span><strong>TN82K1945</strong> DOST+ • Online</span>
+                            <span class="ticker-sep">•</span>
+                            <span class="ticker-item"><span class="ticker-dot blue"></span><strong>Fleetocity GPS</strong> 3/3 Linked</span>
+                            <span class="ticker-sep">•</span>
+                            <span class="ticker-item"><span class="ticker-dot orange"></span><strong>Sri Moorthy Transport</strong> Fast Delivery</span>
+                            <span class="ticker-sep">•</span>
+                            <span class="ticker-item"><span class="ticker-dot green"></span><strong>TN68C6003</strong> TATA ACE • Online</span>
+                            <span class="ticker-sep">•</span>
+                            <span class="ticker-item"><span class="ticker-dot green"></span><strong>TN68W2419</strong> TATA ACE • Ready</span>
+                            <span class="ticker-sep">•</span>
+                            <span class="ticker-item"><span class="ticker-dot green"></span><strong>TN82K1945</strong> DOST+ • Online</span>
+                            <span class="ticker-sep">•</span>
+                            <span class="ticker-item"><span class="ticker-dot blue"></span><strong>Fleetocity GPS</strong> 3/3 Linked</span>
+                            <span class="ticker-sep">•</span>
+                            <span class="ticker-item"><span class="ticker-dot orange"></span><strong>Sri Moorthy Transport</strong> Fast Delivery</span>
+                            <span class="ticker-sep">•</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Live GPS Banner -->
+                <div class="gps-banner-card">
+                    <div class="gps-banner-left">
+                        <div class="gps-radar-pulse">
+                            <span class="radar-circle radar-ring-1"></span>
+                            <span class="radar-circle radar-ring-2"></span>
+                            <span class="radar-circle radar-ring-3"></span>
+                            <span class="radar-scanner"></span>
+                            <span class="radar-dot"></span>
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="20" y1="12" x2="22" y2="12"/><line x1="2" y1="12" x2="4" y2="12"/></svg>
+                        </div>
+                        <div>
+                            <div class="gps-title-row">
+                                <h3>Fleetocity Live GPS</h3>
+                                <span class="live-pill"><span class="live-blink"></span>LIVE TELEMETRY</span>
+                            </div>
+                            <p class="gps-subtitle">Real-time GPS tracking for TN68C6003, TN68W2419 & TN82K1945</p>
+                            <div class="gps-telemetry-tags">
+                                <span class="tele-tag"><span class="dot-green"></span> 3 Trucks Linked</span>
+                                <span class="tele-tag">🛰️ 9 Satellites Active</span>
+                                <span class="tele-tag">⚡ 1s Refresh Rate</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="gps-banner-right">
+                        <a href="https://app.fleetocity.co.in" target="_blank" rel="noopener noreferrer" class="btn-gps-open" id="openGpsBannerBtn">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
+                            <span>Open GPS Cockpit</span>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Stats Cards -->
+                <div class="stats-row">
+                    <div class="stat-card-app glow-orange">
+                        <div class="stat-card-top-row">
+                            <div class="stat-card-icon orange">
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+                            </div>
+                            <span class="stat-trend-chip green">100% Ready</span>
+                        </div>
+                        <div class="stat-card-info">
+                            <span class="stat-card-label">Total Vehicles</span>
+                            <span class="stat-card-value" id="totalVehicles">3</span>
+                        </div>
+                        <div class="stat-progress-track">
+                            <div class="stat-progress-bar orange" style="width: 100%;"></div>
+                        </div>
+                    </div>
+                    <div class="stat-card-app glow-green">
+                        <div class="stat-card-top-row">
+                            <div class="stat-card-icon green">
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                            </div>
+                            <span class="stat-trend-chip blue">Active</span>
+                        </div>
+                        <div class="stat-card-info">
+                            <span class="stat-card-label">Total Bills</span>
+                            <span class="stat-card-value" id="totalBills">0</span>
+                        </div>
+                        <div class="stat-progress-track">
+                            <div class="stat-progress-bar green" style="width: 75%;"></div>
+                        </div>
+                    </div>
+                    <div class="stat-card-app glow-blue">
+                        <div class="stat-card-top-row">
+                            <div class="stat-card-icon blue">
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                            </div>
+                            <span class="stat-trend-chip orange">Live</span>
+                        </div>
+                        <div class="stat-card-info">
+                            <span class="stat-card-label">Revenue</span>
+                            <span class="stat-card-value" id="totalRevenue">₹0</span>
+                        </div>
+                        <div class="stat-progress-track">
+                            <div class="stat-progress-bar blue" style="width: 85%;"></div>
+                        </div>
+                    </div>
+                    <div class="stat-card-app glow-purple">
+                        <div class="stat-card-top-row">
+                            <div class="stat-card-icon purple">
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 22V6a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v16"/><path d="M13 10h4a2 2 0 0 1 2 2v8"/><line x1="3" y1="22" x2="23" y2="22"/></svg>
+                            </div>
+                            <span class="stat-trend-chip purple">Tracked</span>
+                        </div>
+                        <div class="stat-card-info">
+                            <span class="stat-card-label">Fuel Cost</span>
+                            <span class="stat-card-value" id="totalFuelCost">₹0</span>
+                        </div>
+                        <div class="stat-progress-track">
+                            <div class="stat-progress-bar purple" style="width: 45%;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="quick-actions">
+                    <h3 class="section-title-app">Quick Actions</h3>
+                    <div class="quick-actions-grid">
+                        <button class="quick-action-btn" onclick="navigateTo('billing'); setTimeout(()=>document.getElementById('newBillBtn').click(), 300)">
+                            <div class="qa-icon orange"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div>
+                            <span>New Bill</span>
+                        </button>
+                        <button class="quick-action-btn" onclick="navigateTo('fuel'); setTimeout(()=>document.getElementById('addFuelBtn').click(), 300)">
+                            <div class="qa-icon green"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 22V6a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v16"/><path d="M13 10h4a2 2 0 0 1 2 2v8"/><line x1="3" y1="22" x2="23" y2="22"/></svg></div>
+                            <span>Add Fuel</span>
+                        </button>
+                        <a href="https://app.fleetocity.co.in" target="_blank" rel="noopener noreferrer" class="quick-action-btn" title="Open Fleetocity GPS Live Tracking" style="text-decoration:none;">
+                            <div class="qa-icon red"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="20" y1="12" x2="22" y2="12"/><line x1="2" y1="12" x2="4" y2="12"/></svg></div>
+                            <span>Live GPS</span>
+                        </a>
+                        <button class="quick-action-btn" onclick="navigateTo('vehicles')">
+                            <div class="qa-icon blue"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></div>
+                            <span>Vehicles</span>
+                        </button>
+                        <button class="quick-action-btn" onclick="navigateTo('reports')">
+                            <div class="qa-icon purple"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>
+                            <span>Reports</span>
+                        </button>
+                        <button class="quick-action-btn" onclick="openSupabaseModal()">
+                            <div class="qa-icon teal"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M21.362 9.354H12V.396a.396.396 0 0 0-.716-.234L.362 14.25a.396.396 0 0 0 .316.64H12v8.71a.396.396 0 0 0 .716.234l10.922-14.088a.396.396 0 0 0-.276-.392z"/></svg></div>
+                            <span>Supabase</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Recent Activity -->
+                <div class="recent-section">
+                    <h3 class="section-title-app">Recent Activity</h3>
+                    <div class="activity-list" id="recentActivity">
+                        <div class="empty-state">
+                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                            <p>No recent activity. Start by creating a new bill or adding fuel!</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Vehicle Quick View -->
+                <div class="vehicle-quick-view">
+                    <h3 class="section-title-app">Your Fleet</h3>
+                    <div class="fleet-cards" id="fleetCards"></div>
+                </div>
+            </section>
+
+            <!-- ========== VEHICLES PAGE ========== -->
+            <section class="page" id="page-vehicles">
+                <div class="page-header">
+                    <div>
+                        <h2 class="page-title">Vehicles</h2>
+                        <p class="page-subtitle">Manage your fleet vehicles</p>
+                    </div>
+                </div>
+                <div class="vehicle-grid" id="vehicleGrid"></div>
+            </section>
+
+            <!-- ========== BILLING PAGE ========== -->
+            <section class="page" id="page-billing">
+                <div class="page-header">
+                    <div>
+                        <h2 class="page-title">Billing</h2>
+                        <p class="page-subtitle">Create and manage transport bills</p>
+                    </div>
+                    <button class="btn-primary-app" id="newBillBtn" onclick="openBillModal()">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        New Bill
+                    </button>
+                </div>
+
+                <!-- Filter Bar -->
+                <div class="filter-bar">
+                    <div class="search-box">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                        <input type="text" placeholder="Search bills..." id="billSearch" oninput="filterBills()">
+                    </div>
+                    <select id="billVehicleFilter" onchange="filterBills()">
+                        <option value="">All Vehicles</option>
+                    </select>
+                    <select id="billStatusFilter" onchange="filterBills()">
+                        <option value="">All Status</option>
+                        <option value="paid">Paid</option>
+                        <option value="unpaid">Unpaid</option>
+                        <option value="partial">Partial</option>
+                    </select>
+                </div>
+
+                <!-- Bills List -->
+                <div class="bills-list" id="billsList">
+                    <div class="empty-state">
+                        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                        <h3>No Bills Yet</h3>
+                        <p>Create your first transport bill</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ========== FUEL PAGE ========== -->
+            <section class="page" id="page-fuel">
+                <div class="page-header">
+                    <div>
+                        <h2 class="page-title">Fuel Log</h2>
+                        <p class="page-subtitle">Track fuel expenses for your fleet</p>
+                    </div>
+                    <button class="btn-primary-app" id="addFuelBtn" onclick="openFuelModal()">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        Add Fuel
+                    </button>
+                </div>
+
+                <!-- Fuel Summary Cards -->
+                <div class="fuel-summary-row" id="fuelSummaryRow"></div>
+
+                <!-- Filter -->
+                <div class="filter-bar">
+                    <select id="fuelVehicleFilter" onchange="filterFuel()">
+                        <option value="">All Vehicles</option>
+                    </select>
+                    <select id="fuelMonthFilter" onchange="filterFuel()">
+                        <option value="">All Months</option>
+                    </select>
+                </div>
+
+                <!-- Fuel List -->
+                <div class="fuel-list" id="fuelList">
+                    <div class="empty-state">
+                        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><path d="M3 22V6a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v16"/><path d="M13 10h4a2 2 0 0 1 2 2v8"/><line x1="3" y1="22" x2="23" y2="22"/></svg>
+                        <h3>No Fuel Records</h3>
+                        <p>Start tracking fuel expenses</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ========== REPORTS PAGE ========== -->
+            <section class="page" id="page-reports">
+                <div class="page-header">
+                    <div>
+                        <h2 class="page-title">Reports & Analytics</h2>
+                        <p class="page-subtitle">Weekly & Monthly financial performance and fleet efficiency</p>
+                    </div>
+                    <div class="report-header-actions">
+                        <button class="btn-secondary-app" onclick="printReportStatement()" title="Print / PDF Statement">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                            Print Statement
+                        </button>
+                        <button class="btn-secondary-app" onclick="exportPeriodReportCsv()" title="Export CSV for selected period">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                            Export CSV
+                        </button>
+                        <button class="btn-primary-app" onclick="exportAllData()" title="Full JSON Backup">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/><polyline points="7 11 12 16 17 11"/><line x1="12" y1="4" x2="12" y2="16"/></svg>
+                            Backup All
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Report Period Filter Card -->
+                <div class="report-filter-panel">
+                    <div class="report-period-tabs" id="reportPeriodTabs">
+                        <button class="report-period-btn" data-period="this_week" onclick="setReportPeriod('this_week')">This Week</button>
+                        <button class="report-period-btn" data-period="last_week" onclick="setReportPeriod('last_week')">Last Week</button>
+                        <button class="report-period-btn active" data-period="this_month" onclick="setReportPeriod('this_month')">This Month</button>
+                        <button class="report-period-btn" data-period="last_month" onclick="setReportPeriod('last_month')">Last Month</button>
+                        <button class="report-period-btn" data-period="all_time" onclick="setReportPeriod('all_time')">All Time</button>
+                        <button class="report-period-btn" data-period="custom" onclick="setReportPeriod('custom')">Custom Range</button>
+                    </div>
+
+                    <!-- Filter Meta Bar: Active Range Badge, Vehicle Selector, Granularity -->
+                    <div class="report-meta-bar">
+                        <div class="report-range-badge" id="reportRangeBadge">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                            <span id="reportRangeText">01 Oct 2026 – 31 Oct 2026 (October 2026)</span>
+                        </div>
+
+                        <div class="report-controls-group">
+                            <!-- Vehicle Selector -->
+                            <div class="report-vehicle-select-wrap">
+                                <label for="reportVehicleFilter">Vehicle:</label>
+                                <select id="reportVehicleFilter" onchange="onReportVehicleChange()">
+                                    <option value="all">All Fleet Vehicles</option>
+                                </select>
+                            </div>
+
+                            <!-- Granularity Toggle (visible when month is selected) -->
+                            <div class="report-granularity-toggle" id="reportGranularityToggle">
+                                <button class="gran-btn active" id="granWeeklyBtn" onclick="setMonthGranularity('week')">By Week</button>
+                                <button class="gran-btn" id="granDailyBtn" onclick="setMonthGranularity('day')">By Day</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Custom Date Range Picker (shown when custom is selected) -->
+                    <div class="report-custom-picker" id="reportCustomPicker" style="display:none;">
+                        <div class="report-custom-input-group">
+                            <label>From Date:</label>
+                            <input type="date" id="reportCustomStart" onchange="applyCustomReportDates()">
+                        </div>
+                        <div class="report-custom-input-group">
+                            <label>To Date:</label>
+                            <input type="date" id="reportCustomEnd" onchange="applyCustomReportDates()">
+                        </div>
+                        <button class="btn-primary-app btn-sm" onclick="applyCustomReportDates()">Apply Dates</button>
+                    </div>
+                </div>
+
+                <!-- Executive Period KPI Summary Row -->
+                <div class="report-kpi-row" id="reportKpiRow">
+                    <!-- Populated by app.js: Revenue, Fuel, Net Profit, Mileage, Uncollected -->
+                </div>
+
+                <!-- Report Visual Charts -->
+                <div class="report-grid">
+                    <div class="report-card">
+                        <div class="report-card-head">
+                            <h4 id="revenueChartTitle">Revenue</h4>
+                            <span class="report-card-stat" id="revenueChartTotal">₹0</span>
+                        </div>
+                        <div class="report-chart" id="revenueChart"></div>
+                    </div>
+                    <div class="report-card">
+                        <div class="report-card-head">
+                            <h4 id="fuelChartTitle">Fuel Expenses</h4>
+                            <span class="report-card-stat" id="fuelChartTotal">₹0</span>
+                        </div>
+                        <div class="report-chart" id="fuelChart"></div>
+                    </div>
+                    <div class="report-card">
+                        <div class="report-card-head">
+                            <h4>Vehicle-wise Earnings</h4>
+                            <span class="report-card-stat" id="vehicleChartShare">Fleet Share</span>
+                        </div>
+                        <div class="report-chart" id="vehicleChart"></div>
+                    </div>
+                    <div class="report-card full-width">
+                        <div class="report-card-head">
+                            <h4 id="pnlTableTitle">Profit & Loss Summary</h4>
+                            <span class="report-period-tag" id="pnlPeriodTag">Period</span>
+                        </div>
+                        <div class="pnl-table" id="pnlTable"></div>
+                    </div>
+                </div>
+
+                <!-- Detailed Transactions in Selected Period -->
+                <div class="report-card full-width" style="margin-top:20px;">
+                    <div class="report-card-head">
+                        <h4>Period Transactions & Dispatches</h4>
+                        <div class="report-tab-pills" id="reportTxnPills">
+                            <button class="report-pill active" id="pillShowBills" onclick="switchReportTxnTab('bills')">Bills (<span id="periodBillsCount">0</span>)</button>
+                            <button class="report-pill" id="pillShowFuel" onclick="switchReportTxnTab('fuel')">Fuel Logs (<span id="periodFuelCount">0</span>)</button>
+                        </div>
+                    </div>
+                    <div id="reportBillsSection" class="report-txn-list"></div>
+                    <div id="reportFuelSection" class="report-txn-list" style="display:none;"></div>
+                </div>
+            </section>
+
+        </main>
+
+        <!-- Bottom Navigation -->
+        <nav class="bottom-nav" id="bottomNav">
+            <button class="nav-tab active" data-page="dashboard" onclick="navigateTo('dashboard')">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+                <span>Home</span>
+            </button>
+            <button class="nav-tab" data-page="billing" onclick="navigateTo('billing')">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                <span>Bills</span>
+            </button>
+            <button class="nav-tab fab" onclick="openQuickAdd()">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            </button>
+            <button class="nav-tab" data-page="fuel" onclick="navigateTo('fuel')">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 22V6a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v16"/><path d="M13 10h4a2 2 0 0 1 2 2v8"/><line x1="3" y1="22" x2="23" y2="22"/></svg>
+                <span>Fuel</span>
+            </button>
+            <button class="nav-tab" data-page="vehicles" onclick="navigateTo('vehicles')">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+                <span>Fleet</span>
+            </button>
+        </nav>
+
+        <!-- Quick Add Menu -->
+        <div class="quick-add-overlay" id="quickAddOverlay" onclick="closeQuickAdd()"></div>
+        <div class="quick-add-menu" id="quickAddMenu">
+            <button class="quick-add-item" onclick="closeQuickAdd(); navigateTo('billing'); setTimeout(()=>document.getElementById('newBillBtn').click(), 300)">
+                <div class="qa-item-icon orange">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                </div>
+                <span>Create Bill</span>
+            </button>
+            <button class="quick-add-item" onclick="closeQuickAdd(); navigateTo('fuel'); setTimeout(()=>document.getElementById('addFuelBtn').click(), 300)">
+                <div class="qa-item-icon green">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 22V6a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v16"/><path d="M13 10h4a2 2 0 0 1 2 2v8"/><line x1="3" y1="22" x2="23" y2="22"/></svg>
+                </div>
+                <span>Add Fuel</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- ========== MODALS ========== -->
+
+    <!-- Bill Modal -->
+    <div class="modal-overlay" id="billModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="billModalTitle">Create New Bill</h3>
+                <button class="modal-close" onclick="closeBillModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <form id="billForm" onsubmit="saveBill(event)">
+                    <input type="hidden" id="billId">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Bill Number</label>
+                            <input type="text" id="billNumber" readonly>
+                        </div>
+                        <div class="form-group">
+                            <label>Date</label>
+                            <input type="date" id="billDate" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Vehicle</label>
+                        <select id="billVehicle" required>
+                            <option value="">Select Vehicle</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Customer Name</label>
+                            <input type="text" id="customerName" placeholder="Enter customer name" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Customer Phone</label>
+                            <input type="tel" id="customerPhone" placeholder="Phone number">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>From Location</label>
+                            <input type="text" id="fromLocation" placeholder="Pickup location" required>
+                        </div>
+                        <div class="form-group">
+                            <label>To Location</label>
+                            <input type="text" id="toLocation" placeholder="Delivery location" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Goods Description</label>
+                        <textarea id="goodsDesc" placeholder="Describe the goods being transported" rows="2"></textarea>
+                    </div>
+                    
+                    <!-- Line Items -->
+                    <div class="line-items-section">
+                        <div class="line-items-header">
+                            <label>Charges</label>
+                            <button type="button" class="btn-text" onclick="addLineItem()">+ Add Item</button>
+                        </div>
+                        <div id="lineItems">
+                            <div class="line-item" data-index="0">
+                                <input type="text" placeholder="Description (e.g., Transport Charge)" class="item-desc" required>
+                                <input type="number" placeholder="Amount" class="item-amount" min="0" step="0.01" required oninput="calculateBillTotal()">
+                                <button type="button" class="line-item-remove" onclick="removeLineItem(this)">✕</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bill-totals">
+                        <div class="total-row">
+                            <span>Subtotal</span>
+                            <span id="billSubtotal">₹0.00</span>
+                        </div>
+                        <div class="total-row">
+                            <label style="display:flex;align-items:center;gap:8px;">
+                                GST (%)
+                                <input type="number" id="gstPercent" value="0" min="0" max="28" step="0.1" style="width:60px;" oninput="calculateBillTotal()">
+                            </label>
+                            <span id="billGst">₹0.00</span>
+                        </div>
+                        <div class="total-row grand">
+                            <span>Grand Total</span>
+                            <span id="billGrandTotal">₹0.00</span>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Amount Paid</label>
+                            <input type="number" id="amountPaid" value="0" min="0" step="0.01" oninput="calculateBillBalance()">
+                        </div>
+                        <div class="form-group">
+                            <label>Balance</label>
+                            <input type="text" id="billBalance" readonly value="₹0.00">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Payment Status</label>
+                        <select id="paymentStatus">
+                            <option value="unpaid">Unpaid</option>
+                            <option value="partial">Partial</option>
+                            <option value="paid">Paid</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Notes</label>
+                        <textarea id="billNotes" placeholder="Additional notes..." rows="2"></textarea>
+                    </div>
+                    <div class="modal-actions" style="display:flex;justify-content:space-between;align-items:center;">
+                        <button type="button" id="billModalDeleteBtn" class="btn-secondary-app" style="display:none;color:var(--red);border-color:rgba(239,68,68,0.4);" onclick="deleteCurrentModalBill()">🗑️ Delete</button>
+                        <div style="display:flex;gap:10px;margin-left:auto;">
+                            <button type="button" class="btn-secondary-app" onclick="closeBillModal()">Cancel</button>
+                            <button type="submit" class="btn-primary-app">Save Bill</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Fuel Modal -->
+    <div class="modal-overlay" id="fuelModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="fuelModalTitle">Add Fuel Entry</h3>
+                <button class="modal-close" onclick="closeFuelModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <form id="fuelForm" onsubmit="saveFuel(event)">
+                    <input type="hidden" id="fuelId">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Date</label>
+                            <input type="date" id="fuelDate" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Vehicle</label>
+                            <select id="fuelVehicle" required onchange="onFuelVehicleChanged()">
+                                <option value="">Select Vehicle</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Fuel Station</label>
+                            <input type="text" id="fuelStation" placeholder="e.g., Indian Oil / HP / Bharat">
+                        </div>
+                        <div class="form-group">
+                            <label>Fuel Type</label>
+                            <select id="fuelType" required onchange="onFuelTypeChanged()">
+                                <option value="diesel">Diesel</option>
+                                <option value="petrol">Petrol</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Rate & Odometer Row -->
+                    <div class="form-row">
+                        <div class="form-group">
+                            <div class="rate-badge-wrap">
+                                <label>Rate per Litre (₹)</label>
+                                <span class="rate-badge" id="fuelRateBadge">Auto-rate: ₹100.22/L</span>
+                            </div>
+                            <input type="number" id="fuelRate" placeholder="100.22" min="0" step="0.01" required oninput="onFuelRateInput()">
+                        </div>
+                        <div class="form-group">
+                            <label>Current Odometer (km)</label>
+                            <input type="number" id="fuelOdometer" placeholder="e.g. 125400" min="0" oninput="updateFuelAnalysis()">
+                        </div>
+                    </div>
+
+                    <!-- Litres & Total Price Bidirectional Inputs -->
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Litres Filled (L)</label>
+                            <input type="number" id="fuelLitres" placeholder="Enter litres (e.g. 25)" min="0" step="0.01" required oninput="onFuelLitresInput()">
+                        </div>
+                        <div class="form-group">
+                            <label>Total Price (₹)</label>
+                            <input type="number" id="fuelTotalAmount" placeholder="Enter total amount (e.g. 2000)" min="0" step="0.01" required oninput="onFuelTotalAmountInput()">
+                            <input type="hidden" id="fuelTotal" value="₹0.00">
+                        </div>
+                    </div>
+
+                    <!-- Quick Preset Calculation Chips -->
+                    <div class="quick-chip-container">
+                        <div class="quick-chip-row">
+                            <span class="chip-label">Quick Amount:</span>
+                            <button type="button" class="quick-chip" onclick="applyFuelAmount(500)">₹500</button>
+                            <button type="button" class="quick-chip" onclick="applyFuelAmount(1000)">₹1,000</button>
+                            <button type="button" class="quick-chip" onclick="applyFuelAmount(2000)">₹2,000</button>
+                            <button type="button" class="quick-chip" onclick="applyFuelAmount(3000)">₹3,000</button>
+                            <button type="button" class="quick-chip" onclick="applyFuelAmount(5000)">₹5,000</button>
+                        </div>
+                        <div class="quick-chip-row">
+                            <span class="chip-label">Quick Litres:</span>
+                            <button type="button" class="quick-chip" onclick="applyFuelLitres(10)">10 L</button>
+                            <button type="button" class="quick-chip" onclick="applyFuelLitres(20)">20 L</button>
+                            <button type="button" class="quick-chip" onclick="applyFuelLitres(30)">30 L</button>
+                            <button type="button" class="quick-chip" onclick="applyFuelLitres(40)">40 L</button>
+                            <button type="button" class="quick-chip" onclick="applyFuelLitres(50)">50 L</button>
+                        </div>
+                    </div>
+
+                    <!-- Realtime Fuel Price & Mileage Analysis Card -->
+                    <div class="fuel-analysis-box" id="fuelAnalysisBox">
+                        <div class="fuel-analysis-header">
+                            <span class="fuel-analysis-title">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 22V6a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v16"/><path d="M13 10h4a2 2 0 0 1 2 2v8"/><line x1="3" y1="22" x2="23" y2="22"/></svg>
+                                LIVE FUEL & MILEAGE ANALYSIS
+                            </span>
+                            <span class="fuel-efficiency-badge" id="fuelEfficiencyBadge">Analysis Ready</span>
+                        </div>
+                        <div class="fuel-analysis-grid">
+                            <div class="fuel-analysis-item">
+                                <span class="fuel-analysis-val" id="analysisLitres">0.00 L</span>
+                                <span class="fuel-analysis-lbl">Volume Filled</span>
+                            </div>
+                            <div class="fuel-analysis-item">
+                                <span class="fuel-analysis-val" id="analysisCost" style="color:var(--red);">₹0</span>
+                                <span class="fuel-analysis-lbl">Total Fuel Cost</span>
+                            </div>
+                            <div class="fuel-analysis-item">
+                                <span class="fuel-analysis-val" id="analysisRateTrend">₹100.22/L</span>
+                                <span class="fuel-analysis-lbl">Rate / Litre</span>
+                            </div>
+                            <div class="fuel-analysis-item">
+                                <span class="fuel-analysis-val" id="analysisTripDistance">-</span>
+                                <span class="fuel-analysis-lbl">Trip Distance</span>
+                            </div>
+                            <div class="fuel-analysis-item">
+                                <span class="fuel-analysis-val" id="analysisMileage" style="color:var(--green);">-</span>
+                                <span class="fuel-analysis-lbl">Mileage (km/L)</span>
+                            </div>
+                            <div class="fuel-analysis-item">
+                                <span class="fuel-analysis-val" id="analysisCostPerKm">-</span>
+                                <span class="fuel-analysis-lbl">Cost / km</span>
+                            </div>
+                        </div>
+                        <div class="fuel-prev-odo-note" id="fuelOdoNote" style="display:none;">
+                            <span id="fuelPrevOdoText">Last odometer: -</span>
+                            <span id="fuelOdoDiffText">Distance run: -</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Driver Name</label>
+                        <input type="text" id="fuelDriver" placeholder="Driver name">
+                    </div>
+                    <div class="form-group">
+                        <label>Notes</label>
+                        <textarea id="fuelNotes" placeholder="Additional notes..." rows="2"></textarea>
+                    </div>
+                    <div class="modal-actions" style="display:flex;justify-content:space-between;align-items:center;">
+                        <button type="button" id="fuelModalDeleteBtn" class="btn-secondary-app" style="display:none;color:var(--red);border-color:rgba(239,68,68,0.4);" onclick="deleteCurrentModalFuel()">🗑️ Delete</button>
+                        <div style="display:flex;gap:10px;margin-left:auto;">
+                            <button type="button" class="btn-secondary-app" onclick="closeFuelModal()">Cancel</button>
+                            <button type="submit" class="btn-primary-app">Save Entry</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bill View Modal -->
+    <div class="modal-overlay" id="billViewModal">
+        <div class="modal modal-lg">
+            <div class="modal-header">
+                <h3>Bill Details</h3>
+                <button class="modal-close" onclick="closeBillView()">✕</button>
+            </div>
+            <div class="modal-body" id="billViewContent"></div>
+        </div>
+    </div>
+
+    <!-- Supabase Cloud Settings Modal -->
+    <div class="modal-overlay" id="supabaseModal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title-with-icon">
+                    <div class="supabase-brand-icon">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M21.362 9.354H12V.396a.396.396 0 0 0-.716-.234L.362 14.25a.396.396 0 0 0 .316.64H12v8.71a.396.396 0 0 0 .716.234l10.922-14.088a.396.396 0 0 0-.276-.392z"/></svg>
+                    </div>
+                    <div>
+                        <h3>Supabase Cloud Database</h3>
+                        <p class="modal-subtitle">Real-time sync for bills, fuel & vehicles</p>
+                    </div>
+                </div>
+                <button class="modal-close" onclick="closeSupabaseModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <!-- Status Card -->
+                <div class="supabase-status-card" id="supabaseStatusCard">
+                    <div class="status-indicator-row">
+                        <span class="status-pulse-dot" id="supabasePulseDot"></span>
+                        <span class="status-title-text" id="supabaseStatusTitle">Supabase Cloud Active</span>
+                    </div>
+                    <p class="status-desc-text" id="supabaseStatusDesc">Connected to Supabase. All fleet records, bills, and fuel entries are stored directly in your Supabase project.</p>
+                </div>
+
+                <!-- Storage Engine Switcher -->
+                <div class="storage-engine-box">
+                    <div class="storage-engine-header">
+                        <span class="storage-engine-label">STORAGE METHOD</span>
+                        <span class="storage-active-badge" id="storageBadge">Supabase Cloud Active</span>
+                    </div>
+                    <div class="storage-engine-options">
+                        <button type="button" class="storage-opt-btn active" id="storageOptSupabase" onclick="setStorageEngine('supabase')">
+                            <span class="storage-opt-icon">☁️</span>
+                            <div class="storage-opt-details">
+                                <span class="storage-opt-title">Supabase Cloud Storage</span>
+                                <span class="storage-opt-sub">Live database & bucket sync</span>
+                            </div>
+                            <span class="storage-check-icon">✓</span>
+                        </button>
+                        <button type="button" class="storage-opt-btn" id="storageOptLocal" onclick="setStorageEngine('local')">
+                            <span class="storage-opt-icon">💾</span>
+                            <div class="storage-opt-details">
+                                <span class="storage-opt-title">Local Storage Only</span>
+                                <span class="storage-opt-sub">Browser offline device storage</span>
+                            </div>
+                            <span class="storage-check-icon">✓</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Secure Cloud Credentials Form -->
+                <form id="supabaseForm" onsubmit="saveSupabaseConfig(event)">
+                    <div class="supabase-security-badge" style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.25);border-radius:10px;margin-bottom:16px;">
+                        <span style="font-size:18px;">🔒</span>
+                        <div style="font-size:12px;line-height:1.4;">
+                            <strong style="color:var(--green,#10B981);display:block;">Secure Cloud Credentials</strong>
+                            <span style="color:var(--text-secondary);">API keys are permanently protected and never shown in plain text.</span>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Supabase Project URL</label>
+                        <input type="url" id="supabaseUrlInput" placeholder="https://your-project-id.supabase.co" required autocomplete="off">
+                        <small class="form-hint">Found in Supabase: Project Settings → API → Project URL</small>
+                    </div>
+                    <div class="form-group">
+                        <label>Supabase Publishable Key <span style="font-size:11px;color:var(--green,#10B981);font-weight:600;">(Protected)</span></label>
+                        <div class="password-input-wrap">
+                            <input type="password" id="supabaseKeyInput" placeholder="•••••••••••••••••••••••• (Key Configured & Secured)" autocomplete="off">
+                        </div>
+                        <small class="form-hint">API keys are hidden for safety. Leave blank to keep existing configured key.</small>
+                    </div>
+
+                    <div class="modal-actions" style="margin-top:20px;">
+                        <button type="button" class="btn-secondary-app" onclick="closeSupabaseModal()">Cancel</button>
+                        <button type="submit" class="btn-primary-app" id="supabaseConnectBtn">
+                            <span id="connectBtnSpinner" style="display:none;margin-right:6px;">⏳</span>
+                            Connect & Save
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Sync Actions Tools -->
+                <div class="supabase-sync-tools" id="supabaseSyncTools">
+                    <div class="divider-text"><span>DATA TOOLS</span></div>
+                    <div class="sync-actions-grid">
+                        <button type="button" class="sync-tool-btn" onclick="copySupabaseSql()">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                            <span id="copySqlBtnText">Copy SQL Script (Schema)</span>
+                        </button>
+                        <button type="button" class="sync-tool-btn" onclick="openSupabaseSqlEditor()">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+                            <span>Open SQL Editor & Paste</span>
+                        </button>
+                        <button type="button" class="sync-tool-btn" onclick="syncLocalToSupabase()">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                            <span>Upload Local to Cloud</span>
+                        </button>
+                        <button type="button" class="sync-tool-btn" onclick="pullFromSupabase()">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                            <span>Pull Cloud to App</span>
+                        </button>
+                    <div style="display:flex;gap:10px;margin-top:10px;">
+                        <button type="button" class="btn-disconnect" id="supabaseDisconnectBtn" onclick="disconnectSupabase()" style="flex:1;margin-top:0;">Disconnect</button>
+                        <button type="button" class="btn-disconnect" onclick="resetDatabase()" style="flex:1;margin-top:0;border-color:var(--red);color:var(--red);background:var(--red-light);font-weight:700;">🗑️ Reset Database</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- GPS Modal -->
+    <div class="modal-overlay" id="gpsModal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title-with-icon">
+                    <div class="qa-icon red" style="width:38px;height:38px;border-radius:10px;">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="20" y1="12" x2="22" y2="12"/><line x1="2" y1="12" x2="4" y2="12"/></svg>
+                    </div>
+                    <div>
+                        <h3>Fleetocity Live GPS</h3>
+                        <p class="modal-subtitle">Real-time GPS tracking & telematics</p>
+                    </div>
+                </div>
+                <button class="modal-close" onclick="closeGpsModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <!-- Status Banner -->
+                <div class="gps-banner-card" style="margin-bottom:16px;">
+                    <div class="gps-banner-left">
+                        <div class="gps-radar-pulse">
+                            <span class="radar-circle"></span>
+                            <span class="radar-dot"></span>
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="20" y1="12" x2="22" y2="12"/><line x1="2" y1="12" x2="4" y2="12"/></svg>
+                        </div>
+                        <div>
+                            <div class="gps-title-row">
+                                <h3>app.fleetocity.co.in</h3>
+                                <span class="live-pill"><span class="live-blink"></span>LIVE</span>
+                            </div>
+                            <p class="gps-subtitle">Tracking Sri Moorthy Transport active fleet</p>
+                        </div>
+                    </div>
+                    <div class="gps-banner-right">
+                        <a href="https://app.fleetocity.co.in" target="_blank" rel="noopener noreferrer" class="btn-gps-open">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
+                            <span>Open GPS</span>
+                        </a>
+                    </div>
+                </div>
+
+                <div class="divider-text"><span>TRACK SPECIFIC VEHICLE</span></div>
+                <div class="gps-vehicles-grid" id="gpsVehiclesList">
+                    <div class="gps-vehicle-card">
+                        <div class="gps-vehicle-card-left">
+                            <div class="fleet-card-icon" style="width:36px;height:36px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></div>
+                            <div>
+                                <div style="font-weight:700;font-size:13px;">TATA ACE</div>
+                                <div style="margin-top:2px;"><span class="plate-hsrp sm"><span class="ind-tag">IND</span>TN68C6003</span></div>
+                            </div>
+                        </div>
+                        <a href="https://app.fleetocity.co.in" target="_blank" rel="noopener noreferrer" class="vehicle-gps-action-btn">
+                            <span>📍 Track Live</span>
+                        </a>
+                    </div>
+                    <div class="gps-vehicle-card">
+                        <div class="gps-vehicle-card-left">
+                            <div class="fleet-card-icon" style="width:36px;height:36px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></div>
+                            <div>
+                                <div style="font-weight:700;font-size:13px;">TATA ACE</div>
+                                <div style="margin-top:2px;"><span class="plate-hsrp sm"><span class="ind-tag">IND</span>TN68W2419</span></div>
+                            </div>
+                        </div>
+                        <a href="https://app.fleetocity.co.in" target="_blank" rel="noopener noreferrer" class="vehicle-gps-action-btn">
+                            <span>📍 Track Live</span>
+                        </a>
+                    </div>
+                    <div class="gps-vehicle-card">
+                        <div class="gps-vehicle-card-left">
+                            <div class="fleet-card-icon" style="width:36px;height:36px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></div>
+                            <div>
+                                <div style="font-weight:700;font-size:13px;">DOST+</div>
+                                <div style="margin-top:2px;"><span class="plate-hsrp sm"><span class="ind-tag">IND</span>TN82K1945</span></div>
+                            </div>
+                        </div>
+                        <a href="https://app.fleetocity.co.in" target="_blank" rel="noopener noreferrer" class="vehicle-gps-action-btn">
+                            <span>📍 Track Live</span>
+                        </a>
+                    </div>
+                </div>
+
+                <div style="margin-top:20px;text-align:center;">
+                    <a href="https://app.fleetocity.co.in" target="_blank" rel="noopener noreferrer" class="btn-primary-app" style="display:inline-flex;justify-content:center;width:100%;text-decoration:none;">
+                        Open Fleetocity GPS Portal 🛰️
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Install App / APK Modal -->
+    <div class="modal-overlay" id="installModal">
+        <div class="modal install-modal-dialog">
+            <div class="modal-header">
+                <div class="install-header-badge-title">
+                    <div class="install-icon-circle">📲</div>
+                    <div>
+                        <h3 id="installModalTitle" style="margin:0;font-size:17px;">Install App / Download APK</h3>
+                        <p class="install-modal-subtitle">Install Sri Moorthy Fleet on your Android phone</p>
+                    </div>
+                </div>
+                <button class="modal-close" onclick="closeInstallModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <!-- Tabs -->
+                <div class="install-tabs">
+                    <button type="button" class="install-tab-btn active" id="tabInstallMobileBtn" onclick="switchInstallTab('mobile')">
+                        📱 Phone Install (1-Tap)
+                    </button>
+                    <button type="button" class="install-tab-btn" id="tabInstallApkBtn" onclick="switchInstallTab('apk')">
+                        📦 Convert to APK
+                    </button>
+                </div>
+
+                <!-- Tab 1: Direct Mobile Install -->
+                <div class="install-tab-pane active" id="installTabMobile">
+                    <div class="install-qr-hero">
+                        <div class="install-qr-card">
+                            <img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=https://mortgage-placed-utilization-flight.trycloudflare.com" alt="Scan to Install" class="install-qr-img">
+                            <div class="install-qr-badge">SCAN WITH PHONE CAMERA</div>
+                        </div>
+                        <div class="install-qr-info">
+                            <div class="install-step-badge">Live Secure HTTPS Link</div>
+                            <h4 style="font-family:'Outfit',sans-serif;margin:6px 0;font-size:15px;">Open on Mobile Phone</h4>
+                            <p style="font-size:12px;color:var(--text-secondary);margin-bottom:10px;">Open this secure link in Chrome on your phone to install:</p>
+                            
+                            <div class="install-url-pill">
+                                <span class="install-url-text" id="localServerUrl">https://mortgage-placed-utilization-flight.trycloudflare.com</span>
+                                <button type="button" class="btn-copy-url" onclick="copyLocalServerUrl()">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                                    <span>Copy</span>
+                                </button>
+                            </div>
+
+                            <button type="button" class="btn-primary-app install-native-cta" id="nativePwaInstallBtn" onclick="triggerNativeInstall()">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                <span>Install App Now</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="install-steps-card">
+                        <h5 style="margin:0 0 8px 0;font-size:13px;font-weight:700;">How to install on Android Chrome (10 Seconds):</h5>
+                        <div class="install-step-item">
+                            <span class="step-num">1</span>
+                            <span>Open <strong>https://mortgage-placed-utilization-flight.trycloudflare.com</strong> in Google Chrome on your phone.</span>
+                        </div>
+                        <div class="install-step-item">
+                            <span class="step-num">2</span>
+                            <span>A banner will appear at the bottom: <strong>"Add Sri Moorthy to Home screen"</strong> (or tap the <strong>3 dots ⋮</strong> menu &rarr; <strong>"Install app"</strong>).</span>
+                        </div>
+                        <div class="install-step-item">
+                            <span class="step-num">3</span>
+                            <span>Tap <strong>"Install"</strong> — Sri Moorthy Fleet is installed directly to your phone apps!</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab 2: Convert to APK -->
+                <div class="install-tab-pane" id="installTabApk" style="display:none;">
+                    <div class="apk-options-list">
+                        <div class="apk-option-card">
+                            <div class="apk-opt-header">
+                                <div class="apk-opt-title">
+                                    <span class="apk-badge">RECOMMENDED</span>
+                                    <h4>PWABuilder (1-Click Online APK)</h4>
+                                </div>
+                                <span class="apk-cost">FREE</span>
+                            </div>
+                            <p style="font-size:12px;color:var(--text-secondary);margin:6px 0 12px 0;">Official Microsoft & Google Chromium tool that turns this PWA into a signed, ready-to-install Android <code>.apk</code> installer file in 60 seconds.</p>
+                            <div class="apk-steps-mini">
+                                <div>1. Open <strong>pwabuilder.com</strong></div>
+                                <div>2. Enter your live URL (e.g. <code>https://srimoorthy.vercel.app</code>)</div>
+                                <div>3. Click <strong>"Package for Android"</strong> &rarr; <strong>"Download APK"</strong></div>
+                            </div>
+                            <a href="https://www.pwabuilder.com" target="_blank" rel="noopener noreferrer" class="btn-primary-app apk-action-link" style="text-decoration:none;display:inline-flex;justify-content:center;margin-top:10px;">
+                                <span>Open PWABuilder 🚀</span>
+                            </a>
+                        </div>
+
+                        <div class="apk-option-card">
+                            <div class="apk-opt-header">
+                                <div class="apk-opt-title">
+                                    <span class="apk-badge secondary">OFFLINE STUDIO</span>
+                                    <h4>Included Android Project Source</h4>
+                                </div>
+                                <span class="apk-cost">PRE-BUILT</span>
+                            </div>
+                            <p style="font-size:12px;color:var(--text-secondary);margin:6px 0 12px 0;">We have already created the complete native Android project in this workspace under <code>android/</code> with offline assets and camera permissions.</p>
+                            <div class="apk-steps-mini">
+                                <div>1. Open folder <code>c:\Users\Kubera\OneDrive\Desktop\app\android</code> in Android Studio</div>
+                                <div>2. Click <strong>Build &rarr; Build Bundle(s) / APK(s) &rarr; Build APK(s)</strong></div>
+                                <div>3. Install the generated <code>app-debug.apk</code> directly on any phone!</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer" style="padding:12px 20px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;">
+                <button type="button" class="btn-secondary-app" onclick="closeInstallModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Command Palette (Ctrl+K) -->
+    <div class="command-palette-overlay" id="commandPaletteOverlay" onclick="closeCommandPalette()" style="display:none;">
+        <div class="command-palette" onclick="event.stopPropagation()">
+            <div class="command-palette-search">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input type="text" id="commandPaletteInput" placeholder="Type a command or search... (e.g. bill, fuel, gps, dark, dost)" oninput="filterCommandPalette(this.value)" autocomplete="off">
+                <span class="command-palette-esc" onclick="closeCommandPalette()">ESC</span>
+            </div>
+            <div class="command-palette-list" id="commandPaletteList"></div>
+            <div class="command-palette-footer">
+                <span>Navigate: <kbd>↑</kbd> <kbd>↓</kbd></span>
+                <span>Select: <kbd>↵</kbd></span>
+                <span>Close: <kbd>Esc</kbd></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script src="app.js?v=28"></script>
+</body>
+</html>

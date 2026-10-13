@@ -1,0 +1,41 @@
+{
+    "name": "Sri Moorthy Transport - Fleet Manager",
+    "short_name": "SM Fleet",
+    "description": "Fleet management, billing & fuel tracking for Sri Moorthy Transport",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#0a0e27",
+    "theme_color": "#0a0e27",
+    "orientation": "portrait-primary",
+    "categories": ["business", "utilities"],
+    "lang": "en",
+    "icons": [
+        {
+            "src": "https://mr-vishal-dev.github.io/kuberatravels/logo.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "https://mr-vishal-dev.github.io/kuberatravels/logo.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any maskable"
+        }
+    ],
+    "screenshots": [],
+    "shortcuts": [
+        {
+            "name": "New Bill",
+            "short_name": "Bill",
+            "url": "/?page=billing",
+            "description": "Create a new transport bill"
+        },
+        {
+            "name": "Add Fuel",
+            "short_name": "Fuel",
+            "url": "/?page=fuel",
+            "description": "Log a fuel entry"
+        }
+    ]
+}
