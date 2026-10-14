@@ -163,10 +163,18 @@ function getVehicleById(id) {
     return vehicles.find(v => v.id === id || v.number === id || (v.uuid && v.uuid === id));
 }
 
+const LEGACY_VEHICLE_NUMBERS = {
+    'v1': 'TN68C6003',
+    'v2': 'TN68W2419',
+    'v3': 'TN82K1945'
+};
+
 function getVehicleUUID(vehicleIdOrNumber) {
     if (!vehicleIdOrNumber) return null;
+    if (isValidUUID(vehicleIdOrNumber)) return vehicleIdOrNumber;
+    const targetNumber = LEGACY_VEHICLE_NUMBERS[vehicleIdOrNumber] || vehicleIdOrNumber;
     const vehicles = getVehicles();
-    const v = vehicles.find(veh => veh.id === vehicleIdOrNumber || veh.number === vehicleIdOrNumber);
+    const v = vehicles.find(veh => veh.id === vehicleIdOrNumber || veh.number === targetNumber || veh.number === vehicleIdOrNumber);
     if (!v) return null;
     if (v.id && isValidUUID(v.id)) return v.id;
     if (v.uuid && isValidUUID(v.uuid)) return v.uuid;
@@ -3036,10 +3044,20 @@ function mapFuelFromSupabase(row) {
 
 async function uploadBillToSupabase(bill) {
     if (!supabaseClient || !isSupabaseConnected) return;
+    if (!hasRelationalTables) {
+        console.warn('Supabase tables not configured yet. Bill saved locally.');
+        showToast('Saved locally. (Run SQL schema in Supabase to sync to cloud)', 'info');
+        return;
+    }
     try {
         const row = mapBillToSupabase(bill);
         const { error } = await supabaseClient.from('bills').upsert(row);
-        if (error) console.error('Supabase bill upsert error:', error);
+        if (error) {
+            console.error('Supabase bill upsert error:', error);
+            showToast('Cloud sync notice: ' + (error.message || 'Could not save to Supabase'), 'error');
+        } else {
+            console.log('Bill synced to Supabase successfully:', row.bill_number);
+        }
     } catch (err) {
         console.error('Supabase uploadBill error:', err);
     }
@@ -3047,10 +3065,20 @@ async function uploadBillToSupabase(bill) {
 
 async function uploadFuelToSupabase(fuel) {
     if (!supabaseClient || !isSupabaseConnected) return;
+    if (!hasRelationalTables) {
+        console.warn('Supabase tables not configured yet. Fuel entry saved locally.');
+        showToast('Saved locally. (Run SQL schema in Supabase to sync to cloud)', 'info');
+        return;
+    }
     try {
         const row = mapFuelToSupabase(fuel);
         const { error } = await supabaseClient.from('fuel_logs').upsert(row);
-        if (error) console.error('Supabase fuel upsert error:', error);
+        if (error) {
+            console.error('Supabase fuel upsert error:', error);
+            showToast('Cloud sync notice: ' + (error.message || 'Could not save to Supabase'), 'error');
+        } else {
+            console.log('Fuel log synced to Supabase successfully:', row.id);
+        }
     } catch (err) {
         console.error('Supabase uploadFuel error:', err);
     }
@@ -3143,21 +3171,32 @@ async function connectToSupabase(url, key, verbose = true) {
                 }
             } else {
                 hasRelationalTables = false;
+                console.warn('Supabase relational tables check notice:', vErr);
             }
-        } catch {
+        } catch (e) {
             hasRelationalTables = false;
+            console.warn('Supabase table query exception:', e);
         }
 
-        // Pull latest cloud data (from bucket or tables)
-        await pullFromSupabase(false);
+        // Pull latest cloud data if tables exist
+        if (tablesFound) {
+            await pullFromSupabase(false);
+            // If local bills or fuel logs exist, automatically sync them to Supabase
+            const localBills = getBills();
+            const localFuel = getFuelLogs();
+            if (localBills.length > 0 || localFuel.length > 0) {
+                await syncLocalToSupabase(false);
+            }
+        }
 
         // Auto backup current data to Supabase Storage if fresh
         await persistFleetToSupabase();
 
-        // Update UI state
+        // Update UI state with table readiness flag
         updateSupabaseUI(true, tablesFound
-            ? 'Connected to live Supabase Postgres database & storage.'
-            : 'Connected to Supabase Cloud Storage (Bucket: fleet_storage active).'
+            ? 'Connected to live Supabase Postgres database. All records sync in real time.'
+            : 'Connected to Supabase project, but database tables (bills, fuel_logs, vehicles) are not created yet. Run the SQL schema to enable saving.',
+            tablesFound
         );
 
         // Setup realtime if relational tables are available
@@ -3165,7 +3204,21 @@ async function connectToSupabase(url, key, verbose = true) {
             setupSupabaseRealtime();
         }
 
-        if (verbose) showToast('Storage method changed to Supabase Cloud! ☁️🚀', 'success');
+        // Refresh UI & dropdowns
+        populateVehicleDropdowns();
+        renderDashboard();
+        renderVehicles();
+        renderBills();
+        renderFuelLogs();
+        renderReports();
+
+        if (verbose) {
+            if (tablesFound) {
+                showToast('Connected to Supabase Cloud Database! ☁️🚀', 'success');
+            } else {
+                showToast('Connected to Supabase! Run SQL schema to create tables.', 'warning');
+            }
+        }
         return true;
     } catch (err) {
         console.error('Connection failed:', err);
@@ -3307,44 +3360,88 @@ async function pullFromSupabase(showToastMsg = true) {
     }
 }
 
-async function syncLocalToSupabase() {
+async function syncLocalToSupabase(showSuccessToast = true) {
     if (!supabaseClient || !isSupabaseConnected) {
         showToast('Please connect to Supabase first', 'error');
+        return;
+    }
+
+    if (!hasRelationalTables) {
+        if (showSuccessToast) showToast('Supabase tables not found. Run SQL schema in Supabase first!', 'warning');
         return;
     }
 
     const bills = getBills();
     const fuel = getFuelLogs();
 
-    showToast('Syncing records to Supabase Cloud...', 'info');
+    if (showSuccessToast) showToast('Syncing records to Supabase Cloud...', 'info');
 
     let billsSynced = 0;
     let fuelSynced = 0;
 
     try {
-        if (hasRelationalTables) {
-            for (const bill of bills) {
-                const row = mapBillToSupabase(bill);
-                const { error } = await supabaseClient.from('bills').upsert(row);
-                if (!error) billsSynced++;
-            }
+        for (const bill of bills) {
+            const row = mapBillToSupabase(bill);
+            const { error } = await supabaseClient.from('bills').upsert(row);
+            if (!error) billsSynced++;
+            else console.warn('Bill sync item warning:', error);
+        }
 
-            for (const log of fuel) {
-                const row = mapFuelToSupabase(log);
-                const { error } = await supabaseClient.from('fuel_logs').upsert(row);
-                if (!error) fuelSynced++;
-            }
+        for (const log of fuel) {
+            const row = mapFuelToSupabase(log);
+            const { error } = await supabaseClient.from('fuel_logs').upsert(row);
+            if (!error) fuelSynced++;
+            else console.warn('Fuel sync item warning:', error);
         }
 
         await persistFleetToSupabase();
-        showToast(`Stored ${bills.length} bills and ${fuel.length} fuel logs in Supabase Cloud! 🚀☁️`, 'success');
+        if (showSuccessToast) {
+            showToast(`✅ Synced ${billsSynced}/${bills.length} bills & ${fuelSynced}/${fuel.length} fuel logs to Supabase! 🚀☁️`, 'success');
+        }
     } catch (e) {
         console.error('Sync error:', e);
-        showToast('Sync error: ' + e.message, 'error');
+        if (showSuccessToast) showToast('Sync error: ' + e.message, 'error');
     }
 }
+window.syncLocalToSupabase = syncLocalToSupabase;
 
-function updateSupabaseUI(connected, message) {
+async function checkSupabaseTables(verbose = true) {
+    if (!supabaseClient) {
+        if (verbose) showToast('Connecting to Supabase...', 'info');
+        const ok = await connectToSupabase(null, null, verbose);
+        return ok;
+    }
+    if (verbose) showToast('Verifying database tables in Supabase...', 'info');
+
+    try {
+        const { data, error } = await supabaseClient.from('vehicles').select('*').limit(5);
+        if (error) {
+            hasRelationalTables = false;
+            updateSupabaseUI(true, 'Tables not found: ' + (error.message || 'PGRST205 error'), false);
+            if (verbose) showToast('Database tables not found. Run the SQL schema in Supabase!', 'error');
+            return false;
+        } else {
+            hasRelationalTables = true;
+            updateSupabaseUI(true, 'Live Postgres database active. All records sync with Supabase.', true);
+            if (data && data.length > 0) {
+                setStore(STORAGE_KEYS.vehicles, data.map(mapVehicleFromSupabase));
+                populateVehicleDropdowns();
+                renderVehicles();
+            }
+            // Auto sync local bills & fuel to cloud
+            await syncLocalToSupabase(true);
+            return true;
+        }
+    } catch (err) {
+        hasRelationalTables = false;
+        updateSupabaseUI(true, 'Connection check failed: ' + err.message, false);
+        if (verbose) showToast('Connection check failed: ' + err.message, 'error');
+        return false;
+    }
+}
+window.checkSupabaseTables = checkSupabaseTables;
+
+function updateSupabaseUI(connected, message, tablesReady = true) {
     const pill = document.getElementById('cloudStatusBtn');
     const label = document.getElementById('cloudLabel');
     const sidebarTag = document.getElementById('sidebarCloudTag');
@@ -3354,41 +3451,73 @@ function updateSupabaseUI(connected, message) {
     const badge = document.getElementById('storageBadge');
     const optSupabase = document.getElementById('storageOptSupabase');
     const optLocal = document.getElementById('storageOptLocal');
+    const missingBanner = document.getElementById('supabaseTablesMissingBanner');
 
     if (connected) {
-        if (pill) {
-            pill.classList.add('connected');
-            if (label) label.textContent = 'Supabase Active';
+        if (tablesReady) {
+            if (pill) {
+                pill.className = 'cloud-status-pill connected';
+                if (label) label.textContent = 'Supabase Active';
+            }
+            if (sidebarTag) {
+                sidebarTag.className = 'sidebar-cloud-tag connected';
+                sidebarTag.textContent = 'Online';
+            }
+            if (statusCard) {
+                statusCard.className = 'supabase-status-card connected';
+            }
+            if (statusTitle) statusTitle.textContent = 'Supabase Cloud Database: Active ✅';
+            if (statusDesc) statusDesc.textContent = message || 'Live Postgres database active. All fleet records, bills, and fuel entries sync directly with Supabase.';
+            if (badge) {
+                badge.textContent = 'Supabase Cloud Active';
+                badge.style.background = '';
+                badge.style.color = '';
+            }
+            if (missingBanner) missingBanner.style.display = 'none';
+        } else {
+            // Connected to project, but tables not created in SQL editor yet
+            if (pill) {
+                pill.className = 'cloud-status-pill warning';
+                if (label) label.textContent = 'SQL Tables Missing';
+            }
+            if (sidebarTag) {
+                sidebarTag.className = 'sidebar-cloud-tag warning';
+                sidebarTag.textContent = 'SQL Setup Needed';
+            }
+            if (statusCard) {
+                statusCard.className = 'supabase-status-card warning';
+            }
+            if (statusTitle) statusTitle.textContent = 'Supabase Connected (SQL Setup Required) ⚠️';
+            if (statusDesc) statusDesc.textContent = message || 'Project connected, but database tables (bills, fuel_logs, vehicles) have not been created yet in Supabase.';
+            if (badge) {
+                badge.textContent = 'Tables Not Created';
+                badge.style.background = 'rgba(239, 82, 38, 0.2)';
+                badge.style.color = 'var(--orange, #EF5226)';
+            }
+            if (missingBanner) missingBanner.style.display = 'block';
         }
-        if (sidebarTag) {
-            sidebarTag.classList.add('connected');
-            sidebarTag.textContent = 'Online';
-        }
-        if (statusCard) {
-            statusCard.classList.remove('disconnected');
-            statusCard.classList.add('connected');
-        }
-        if (statusTitle) statusTitle.textContent = 'Supabase Cloud Storage: Active';
-        if (statusDesc) statusDesc.textContent = message || 'Live cloud storage active. All fleet records sync directly with Supabase.';
-        if (badge) badge.textContent = 'Supabase Cloud Active';
         if (optSupabase) optSupabase.classList.add('active');
         if (optLocal) optLocal.classList.remove('active');
     } else {
         if (pill) {
-            pill.classList.remove('connected');
+            pill.className = 'cloud-status-pill';
             if (label) label.textContent = 'Local Storage';
         }
         if (sidebarTag) {
-            sidebarTag.classList.remove('connected');
+            sidebarTag.className = 'sidebar-cloud-tag';
             sidebarTag.textContent = 'Offline';
         }
         if (statusCard) {
-            statusCard.classList.remove('connected');
-            statusCard.classList.add('disconnected');
+            statusCard.className = 'supabase-status-card disconnected';
         }
         if (statusTitle) statusTitle.textContent = 'Local Storage Mode';
         if (statusDesc) statusDesc.textContent = message || 'Data stored locally on this device. Connect Supabase to enable cloud persistence.';
-        if (badge) badge.textContent = 'Local Only';
+        if (badge) {
+            badge.textContent = 'Local Only';
+            badge.style.background = '';
+            badge.style.color = '';
+        }
+        if (missingBanner) missingBanner.style.display = 'none';
         if (optSupabase) optSupabase.classList.remove('active');
         if (optLocal) optLocal.classList.add('active');
     }
@@ -3512,12 +3641,13 @@ async function resetDatabase() {
 window.resetDatabase = resetDatabase;
 
 
-const SUPABASE_SCHEMA_SQL = `-- =============================================
--- SRI MOORTHY TRANSPORT - SUPABASE DATABASE SCHEMA
+const SUPABASE_SCHEMA_SQL = `-- ========================================================
+-- SRI MOORTHY TRANSPORT - COMPLETE SUPABASE DATABASE SETUP
 -- Run this in your Supabase SQL Editor:
 -- https://supabase.com/dashboard/project/gusrwwwoammurxzwywmy/sql/new
--- =============================================
+-- ========================================================
 
+-- 1. VEHICLES TABLE
 CREATE TABLE IF NOT EXISTS public.vehicles (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     name TEXT NOT NULL,
@@ -3529,6 +3659,7 @@ CREATE TABLE IF NOT EXISTS public.vehicles (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- 2. BILLS TABLE
 CREATE TABLE IF NOT EXISTS public.bills (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     bill_number TEXT NOT NULL UNIQUE,
@@ -3552,6 +3683,7 @@ CREATE TABLE IF NOT EXISTS public.bills (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- 3. FUEL LOGS TABLE
 CREATE TABLE IF NOT EXISTS public.fuel_logs (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     date DATE NOT NULL,
@@ -3568,12 +3700,20 @@ CREATE TABLE IF NOT EXISTS public.fuel_logs (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- 4. APP SETTINGS TABLE
 CREATE TABLE IF NOT EXISTS public.app_settings (
     key TEXT PRIMARY KEY,
     value JSONB NOT NULL,
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- 5. PERFORMANCE INDEXES
+CREATE INDEX IF NOT EXISTS idx_bills_vehicle_id ON public.bills(vehicle_id);
+CREATE INDEX IF NOT EXISTS idx_bills_date ON public.bills(date DESC);
+CREATE INDEX IF NOT EXISTS idx_fuel_logs_vehicle_id ON public.fuel_logs(vehicle_id);
+CREATE INDEX IF NOT EXISTS idx_fuel_logs_date ON public.fuel_logs(date DESC);
+
+-- 6. SEED DEFAULT FLEET VEHICLES
 INSERT INTO public.vehicles (name, number, type, color, status)
 VALUES 
     ('TATA ACE', 'TN68C6003', 'TATA ACE', '#EF5226', 'active'),
@@ -3581,26 +3721,71 @@ VALUES
     ('DOST+', 'TN82K1945', 'DOST+', '#10b981', 'active')
 ON CONFLICT (number) DO NOTHING;
 
+-- 7. ROW LEVEL SECURITY (RLS) POLICIES
 ALTER TABLE public.vehicles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.bills ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.fuel_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.app_settings ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Allow public read access to vehicles" ON public.vehicles;
+DROP POLICY IF EXISTS "Allow public write access to vehicles" ON public.vehicles;
 CREATE POLICY "Allow public read access to vehicles" ON public.vehicles FOR SELECT USING (true);
-CREATE POLICY "Allow public write access to vehicles" ON public.vehicles FOR ALL USING (true);
+CREATE POLICY "Allow public write access to vehicles" ON public.vehicles FOR ALL USING (true) WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Allow public read access to bills" ON public.bills;
+DROP POLICY IF EXISTS "Allow public write access to bills" ON public.bills;
 CREATE POLICY "Allow public read access to bills" ON public.bills FOR SELECT USING (true);
-CREATE POLICY "Allow public write access to bills" ON public.bills FOR ALL USING (true);
+CREATE POLICY "Allow public write access to bills" ON public.bills FOR ALL USING (true) WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Allow public read access to fuel_logs" ON public.fuel_logs;
+DROP POLICY IF EXISTS "Allow public write access to fuel_logs" ON public.fuel_logs;
 CREATE POLICY "Allow public read access to fuel_logs" ON public.fuel_logs FOR SELECT USING (true);
-CREATE POLICY "Allow public write access to fuel_logs" ON public.fuel_logs FOR ALL USING (true);
+CREATE POLICY "Allow public write access to fuel_logs" ON public.fuel_logs FOR ALL USING (true) WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Allow public read access to app_settings" ON public.app_settings;
+DROP POLICY IF EXISTS "Allow public write access to app_settings" ON public.app_settings;
 CREATE POLICY "Allow public read access to app_settings" ON public.app_settings FOR SELECT USING (true);
-CREATE POLICY "Allow public write access to app_settings" ON public.app_settings FOR ALL USING (true);
+CREATE POLICY "Allow public write access to app_settings" ON public.app_settings FOR ALL USING (true) WITH CHECK (true);
 
-ALTER PUBLICATION supabase_realtime ADD TABLE public.vehicles;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.bills;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.fuel_logs;`;
+-- 8. STORAGE BUCKET & POLICIES (FOR JSON BACKUP FALLBACK)
+INSERT INTO storage.buckets (id, name, public) 
+VALUES ('fleet_storage', 'fleet_storage', true)
+ON CONFLICT (id) DO UPDATE SET public = true;
+
+DROP POLICY IF EXISTS "Public Select Storage" ON storage.objects;
+CREATE POLICY "Public Select Storage" ON storage.objects FOR SELECT USING (bucket_id = 'fleet_storage');
+
+DROP POLICY IF EXISTS "Public Insert Storage" ON storage.objects;
+CREATE POLICY "Public Insert Storage" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'fleet_storage');
+
+DROP POLICY IF EXISTS "Public Update Storage" ON storage.objects;
+CREATE POLICY "Public Update Storage" ON storage.objects FOR UPDATE USING (bucket_id = 'fleet_storage') WITH CHECK (bucket_id = 'fleet_storage');
+
+DROP POLICY IF EXISTS "Public Delete Storage" ON storage.objects;
+CREATE POLICY "Public Delete Storage" ON storage.objects FOR DELETE USING (bucket_id = 'fleet_storage');
+
+-- 9. REALTIME SUBSCRIPTIONS
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables 
+        WHERE pubname = 'supabase_realtime' AND tablename = 'vehicles'
+    ) THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.vehicles;
+    END IF;
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables 
+        WHERE pubname = 'supabase_realtime' AND tablename = 'bills'
+    ) THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.bills;
+    END IF;
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables 
+        WHERE pubname = 'supabase_realtime' AND tablename = 'fuel_logs'
+    ) THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.fuel_logs;
+    END IF;
+END $$;`;
 
 function copySupabaseSql() {
     if (navigator.clipboard && navigator.clipboard.writeText) {

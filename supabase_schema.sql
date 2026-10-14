@@ -1,8 +1,8 @@
--- =============================================
--- SRI MOORTHY TRANSPORT - SUPABASE DATABASE SCHEMA
+-- ========================================================
+-- SRI MOORTHY TRANSPORT - COMPLETE SUPABASE DATABASE SETUP
 -- Run this in your Supabase SQL Editor:
--- https://supabase.com/dashboard/project/gusrwwwoammurxzwywmy/sql
--- =============================================
+-- https://supabase.com/dashboard/project/gusrwwwoammurxzwywmy/sql/new
+-- ========================================================
 
 -- 1. VEHICLES TABLE
 CREATE TABLE IF NOT EXISTS public.vehicles (
@@ -57,14 +57,20 @@ CREATE TABLE IF NOT EXISTS public.fuel_logs (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 4. APP SETTINGS / COUNTER TABLE
+-- 4. APP SETTINGS TABLE
 CREATE TABLE IF NOT EXISTS public.app_settings (
     key TEXT PRIMARY KEY,
     value JSONB NOT NULL,
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 5. SEED DEFAULT FLEET VEHICLES
+-- 5. PERFORMANCE INDEXES
+CREATE INDEX IF NOT EXISTS idx_bills_vehicle_id ON public.bills(vehicle_id);
+CREATE INDEX IF NOT EXISTS idx_bills_date ON public.bills(date DESC);
+CREATE INDEX IF NOT EXISTS idx_fuel_logs_vehicle_id ON public.fuel_logs(vehicle_id);
+CREATE INDEX IF NOT EXISTS idx_fuel_logs_date ON public.fuel_logs(date DESC);
+
+-- 6. SEED DEFAULT FLEET VEHICLES
 INSERT INTO public.vehicles (name, number, type, color, status)
 VALUES 
     ('TATA ACE', 'TN68C6003', 'TATA ACE', '#EF5226', 'active'),
@@ -72,26 +78,68 @@ VALUES
     ('DOST+', 'TN82K1945', 'DOST+', '#10b981', 'active')
 ON CONFLICT (number) DO NOTHING;
 
--- 6. ENABLE ROW LEVEL SECURITY (RLS)
+-- 7. ROW LEVEL SECURITY (RLS) POLICIES
 ALTER TABLE public.vehicles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.bills ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.fuel_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.app_settings ENABLE ROW LEVEL SECURITY;
 
--- 7. RLS POLICIES FOR ANONYMOUS & AUTHENTICATED ACCESS
+DROP POLICY IF EXISTS "Allow public read access to vehicles" ON public.vehicles;
+DROP POLICY IF EXISTS "Allow public write access to vehicles" ON public.vehicles;
 CREATE POLICY "Allow public read access to vehicles" ON public.vehicles FOR SELECT USING (true);
-CREATE POLICY "Allow public write access to vehicles" ON public.vehicles FOR ALL USING (true);
+CREATE POLICY "Allow public write access to vehicles" ON public.vehicles FOR ALL USING (true) WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Allow public read access to bills" ON public.bills;
+DROP POLICY IF EXISTS "Allow public write access to bills" ON public.bills;
 CREATE POLICY "Allow public read access to bills" ON public.bills FOR SELECT USING (true);
-CREATE POLICY "Allow public write access to bills" ON public.bills FOR ALL USING (true);
+CREATE POLICY "Allow public write access to bills" ON public.bills FOR ALL USING (true) WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Allow public read access to fuel_logs" ON public.fuel_logs;
+DROP POLICY IF EXISTS "Allow public write access to fuel_logs" ON public.fuel_logs;
 CREATE POLICY "Allow public read access to fuel_logs" ON public.fuel_logs FOR SELECT USING (true);
-CREATE POLICY "Allow public write access to fuel_logs" ON public.fuel_logs FOR ALL USING (true);
+CREATE POLICY "Allow public write access to fuel_logs" ON public.fuel_logs FOR ALL USING (true) WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Allow public read access to app_settings" ON public.app_settings;
+DROP POLICY IF EXISTS "Allow public write access to app_settings" ON public.app_settings;
 CREATE POLICY "Allow public read access to app_settings" ON public.app_settings FOR SELECT USING (true);
-CREATE POLICY "Allow public write access to app_settings" ON public.app_settings FOR ALL USING (true);
+CREATE POLICY "Allow public write access to app_settings" ON public.app_settings FOR ALL USING (true) WITH CHECK (true);
 
--- 8. ENABLE REALTIME SUBSCRIPTIONS
-ALTER PUBLICATION supabase_realtime ADD TABLE public.vehicles;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.bills;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.fuel_logs;
+-- 8. STORAGE BUCKET & POLICIES (FOR JSON BACKUP FALLBACK)
+INSERT INTO storage.buckets (id, name, public) 
+VALUES ('fleet_storage', 'fleet_storage', true)
+ON CONFLICT (id) DO UPDATE SET public = true;
+
+DROP POLICY IF EXISTS "Public Select Storage" ON storage.objects;
+CREATE POLICY "Public Select Storage" ON storage.objects FOR SELECT USING (bucket_id = 'fleet_storage');
+
+DROP POLICY IF EXISTS "Public Insert Storage" ON storage.objects;
+CREATE POLICY "Public Insert Storage" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'fleet_storage');
+
+DROP POLICY IF EXISTS "Public Update Storage" ON storage.objects;
+CREATE POLICY "Public Update Storage" ON storage.objects FOR UPDATE USING (bucket_id = 'fleet_storage') WITH CHECK (bucket_id = 'fleet_storage');
+
+DROP POLICY IF EXISTS "Public Delete Storage" ON storage.objects;
+CREATE POLICY "Public Delete Storage" ON storage.objects FOR DELETE USING (bucket_id = 'fleet_storage');
+
+-- 9. REALTIME SUBSCRIPTIONS
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables 
+        WHERE pubname = 'supabase_realtime' AND tablename = 'vehicles'
+    ) THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.vehicles;
+    END IF;
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables 
+        WHERE pubname = 'supabase_realtime' AND tablename = 'bills'
+    ) THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.bills;
+    END IF;
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables 
+        WHERE pubname = 'supabase_realtime' AND tablename = 'fuel_logs'
+    ) THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.fuel_logs;
+    END IF;
+END $$;

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sm-fleet-v15';
+const CACHE_NAME = 'sm-fleet-v16';
 const urlsToCache = [
     '/',
     '/index.html',

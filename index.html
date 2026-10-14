@@ -14,7 +14,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Outfit:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=28">
+    <link rel="stylesheet" href="style.css?v=29">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
@@ -959,6 +959,27 @@
                     <p class="status-desc-text" id="supabaseStatusDesc">Connected to Supabase. All fleet records, bills, and fuel entries are stored directly in your Supabase project.</p>
                 </div>
 
+                <!-- Missing Tables Action Banner -->
+                <div id="supabaseTablesMissingBanner" class="supabase-missing-banner" style="display:none;margin-bottom:18px;background:rgba(239,82,38,0.08);border:1px solid rgba(239,82,38,0.3);border-radius:12px;padding:14px;">
+                    <div style="display:flex;align-items:flex-start;gap:12px;">
+                        <span style="font-size:24px;line-height:1;">⚠️</span>
+                        <div style="flex:1;">
+                            <strong style="color:var(--orange,#EF5226);font-size:13px;display:block;margin-bottom:4px;">SQL Tables Not Created Yet!</strong>
+                            <p style="font-size:12px;color:var(--text-secondary);line-height:1.45;margin:0 0 10px 0;">
+                                Bills and fuel entries cannot save to Supabase until the database tables are created. Copy the SQL schema below, paste it into the Supabase SQL Editor, and click <strong>Run</strong>.
+                            </p>
+                            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                                <button type="button" class="btn-primary-app sm" onclick="copySupabaseSql(); openSupabaseSqlEditor();" style="padding:6px 14px;font-size:12px;">
+                                    📋 Copy SQL & Open Editor
+                                </button>
+                                <button type="button" class="btn-secondary-app sm" onclick="checkSupabaseTables(true)" style="padding:6px 12px;font-size:12px;">
+                                    🔄 Verify Tables
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Storage Engine Switcher -->
                 <div class="storage-engine-box">
                     <div class="storage-engine-header">
@@ -1269,6 +1290,6 @@
     <!-- Toast -->
     <div class="toast-container" id="toastContainer"></div>
 
-    <script src="app.js?v=28"></script>
+    <script src="app.js?v=29"></script>
 </body>
 </html>
