@@ -1,6 +1,6 @@
 -- ========================================================
--- SRI MOORTHY TRANSPORT - COMPLETE SUPABASE DATABASE SETUP
--- Run this in your Supabase SQL Editor:
+-- SRI MOORTHY TRANSPORT - SUPABASE DATABASE SETUP
+-- Paste and run this in your Supabase SQL Editor:
 -- https://supabase.com/dashboard/project/gusrwwwoammurxzwywmy/sql/new
 -- ========================================================
 
@@ -78,12 +78,13 @@ VALUES
     ('DOST+', 'TN82K1945', 'DOST+', '#10b981', 'active')
 ON CONFLICT (number) DO NOTHING;
 
--- 7. ROW LEVEL SECURITY (RLS) POLICIES
+-- 7. ENABLE ROW LEVEL SECURITY (RLS)
 ALTER TABLE public.vehicles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.bills ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.fuel_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.app_settings ENABLE ROW LEVEL SECURITY;
 
+-- 8. RLS POLICIES (FULL READ & WRITE ACCESS)
 DROP POLICY IF EXISTS "Allow public read access to vehicles" ON public.vehicles;
 DROP POLICY IF EXISTS "Allow public write access to vehicles" ON public.vehicles;
 CREATE POLICY "Allow public read access to vehicles" ON public.vehicles FOR SELECT USING (true);
@@ -104,42 +105,19 @@ DROP POLICY IF EXISTS "Allow public write access to app_settings" ON public.app_
 CREATE POLICY "Allow public read access to app_settings" ON public.app_settings FOR SELECT USING (true);
 CREATE POLICY "Allow public write access to app_settings" ON public.app_settings FOR ALL USING (true) WITH CHECK (true);
 
--- 8. STORAGE BUCKET & POLICIES (FOR JSON BACKUP FALLBACK)
-INSERT INTO storage.buckets (id, name, public) 
-VALUES ('fleet_storage', 'fleet_storage', true)
-ON CONFLICT (id) DO UPDATE SET public = true;
-
-DROP POLICY IF EXISTS "Public Select Storage" ON storage.objects;
-CREATE POLICY "Public Select Storage" ON storage.objects FOR SELECT USING (bucket_id = 'fleet_storage');
-
-DROP POLICY IF EXISTS "Public Insert Storage" ON storage.objects;
-CREATE POLICY "Public Insert Storage" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'fleet_storage');
-
-DROP POLICY IF EXISTS "Public Update Storage" ON storage.objects;
-CREATE POLICY "Public Update Storage" ON storage.objects FOR UPDATE USING (bucket_id = 'fleet_storage') WITH CHECK (bucket_id = 'fleet_storage');
-
-DROP POLICY IF EXISTS "Public Delete Storage" ON storage.objects;
-CREATE POLICY "Public Delete Storage" ON storage.objects FOR DELETE USING (bucket_id = 'fleet_storage');
-
--- 9. REALTIME SUBSCRIPTIONS
+-- 9. SAFE REALTIME ACTIVATION
 DO $$
 BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_publication_tables 
-        WHERE pubname = 'supabase_realtime' AND tablename = 'vehicles'
-    ) THEN
+    BEGIN
         ALTER PUBLICATION supabase_realtime ADD TABLE public.vehicles;
-    END IF;
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_publication_tables 
-        WHERE pubname = 'supabase_realtime' AND tablename = 'bills'
-    ) THEN
+    EXCEPTION WHEN OTHERS THEN NULL;
+    END;
+    BEGIN
         ALTER PUBLICATION supabase_realtime ADD TABLE public.bills;
-    END IF;
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_publication_tables 
-        WHERE pubname = 'supabase_realtime' AND tablename = 'fuel_logs'
-    ) THEN
+    EXCEPTION WHEN OTHERS THEN NULL;
+    END;
+    BEGIN
         ALTER PUBLICATION supabase_realtime ADD TABLE public.fuel_logs;
-    END IF;
+    EXCEPTION WHEN OTHERS THEN NULL;
+    END;
 END $$;

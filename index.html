@@ -14,7 +14,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Outfit:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=29">
+    <link rel="stylesheet" href="style.css?v=32">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
@@ -424,10 +424,16 @@
                         <h2 class="page-title">Billing</h2>
                         <p class="page-subtitle">Create and manage transport bills</p>
                     </div>
-                    <button class="btn-primary-app" id="newBillBtn" onclick="openBillModal()">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                        New Bill
-                    </button>
+                    <div style="display:flex;gap:8px;align-items:center;">
+                        <button class="btn-secondary-app" onclick="promptResetBillNumber()" title="Reset bill sequence back to SM-0001">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+                            Reset Bill #
+                        </button>
+                        <button class="btn-primary-app" id="newBillBtn" onclick="openBillModal()">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                            New Bill
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Filter Bar -->
@@ -673,8 +679,11 @@
                     <input type="hidden" id="billId">
                     <div class="form-row">
                         <div class="form-group">
-                            <label>Bill Number</label>
-                            <input type="text" id="billNumber" readonly>
+                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                                <label style="margin-bottom:0;">Bill Number</label>
+                                <button type="button" class="btn-text" onclick="promptResetBillNumber()" style="font-size:11px;color:var(--orange,#EF5226);padding:0;background:none;border:none;cursor:pointer;font-weight:600;" title="Reset or change starting bill number">🔄 Reset Bill #</button>
+                            </div>
+                            <input type="text" id="billNumber" placeholder="SM-0001" style="font-weight:700;letter-spacing:0.5px;">
                         </div>
                         <div class="form-group">
                             <label>Date</label>
@@ -803,8 +812,58 @@
                     </div>
                     <div class="form-row">
                         <div class="form-group">
-                            <label>Fuel Station</label>
-                            <input type="text" id="fuelStation" placeholder="e.g., Indian Oil / HP / Bharat">
+                            <label>Fuel Station <span style="font-size:11px;color:var(--text-muted);">(Main: Kumbakonam)</span></label>
+                            <select id="fuelStation" required onchange="onFuelStationChange()">
+                                <optgroup label="📍 Main Station (Kumbakonam)">
+                                    <option value="Kumbakonam (Main)">Kumbakonam (Main)</option>
+                                    <option value="Kumbakonam - Indian Oil (IOCL)">Kumbakonam - Indian Oil (IOCL)</option>
+                                    <option value="Kumbakonam - Bharat Petroleum (BPCL)">Kumbakonam - Bharat Petroleum (BPCL)</option>
+                                    <option value="Kumbakonam - HP Petrol Bunk (HPCL)">Kumbakonam - HP Petrol Bunk (HPCL)</option>
+                                    <option value="Kumbakonam - Shell">Kumbakonam - Shell</option>
+                                    <option value="Kumbakonam Bypass">Kumbakonam Bypass</option>
+                                    <option value="Kumbakonam Town">Kumbakonam Town</option>
+                                </optgroup>
+                                <optgroup label="🗺️ All States & Regions">
+                                    <option value="Tamil Nadu">Tamil Nadu</option>
+                                    <option value="Puducherry / Karaikal">Puducherry / Karaikal</option>
+                                    <option value="Kerala">Kerala</option>
+                                    <option value="Karnataka">Karnataka</option>
+                                    <option value="Andhra Pradesh">Andhra Pradesh</option>
+                                    <option value="Telangana">Telangana</option>
+                                    <option value="Maharashtra">Maharashtra</option>
+                                    <option value="Goa">Goa</option>
+                                    <option value="Gujarat">Gujarat</option>
+                                    <option value="Rajasthan">Rajasthan</option>
+                                    <option value="Madhya Pradesh">Madhya Pradesh</option>
+                                    <option value="Uttar Pradesh">Uttar Pradesh</option>
+                                    <option value="West Bengal">West Bengal</option>
+                                    <option value="Bihar">Bihar</option>
+                                    <option value="Odisha">Odisha</option>
+                                    <option value="Punjab">Punjab</option>
+                                    <option value="Haryana">Haryana</option>
+                                    <option value="Delhi NCR">Delhi NCR</option>
+                                    <option value="All States / National Highway">All States / National Highway</option>
+                                </optgroup>
+                                <optgroup label="🛣️ Tamil Nadu Transit Stations">
+                                    <option value="Thanjavur">Thanjavur</option>
+                                    <option value="Trichy">Trichy</option>
+                                    <option value="Chennai">Chennai</option>
+                                    <option value="Madurai">Madurai</option>
+                                    <option value="Salem">Salem</option>
+                                    <option value="Coimbatore">Coimbatore</option>
+                                    <option value="Dindigul">Dindigul</option>
+                                    <option value="Karur">Karur</option>
+                                    <option value="Tirunelveli">Tirunelveli</option>
+                                    <option value="Villupuram">Villupuram</option>
+                                    <option value="Mayiladuthurai">Mayiladuthurai</option>
+                                </optgroup>
+                                <optgroup label="✏️ Custom Option">
+                                    <option value="OTHER">Other Station (Type Below)...</option>
+                                </optgroup>
+                            </select>
+                            <div id="fuelStationCustomWrap" style="display:none;margin-top:8px;">
+                                <input type="text" id="fuelStationCustom" placeholder="Enter custom station name / location">
+                            </div>
                         </div>
                         <div class="form-group">
                             <label>Fuel Type</label>
@@ -905,7 +964,17 @@
                     </div>
                     <div class="form-group">
                         <label>Driver Name</label>
-                        <input type="text" id="fuelDriver" placeholder="Driver name">
+                        <select id="fuelDriver" required onchange="onFuelDriverChange()">
+                            <option value="">Select Driver</option>
+                            <option value="KUMAR">KUMAR</option>
+                            <option value="SARAVANAN">SARAVANAN</option>
+                            <option value="THANDA PADI">THANDA PADI</option>
+                            <option value="OWNER">OWNER</option>
+                            <option value="OTHER">Other Driver (Type Below)...</option>
+                        </select>
+                        <div id="fuelDriverCustomWrap" style="display:none;margin-top:8px;">
+                            <input type="text" id="fuelDriverCustom" placeholder="Enter driver name">
+                        </div>
                     </div>
                     <div class="form-group">
                         <label>Notes</label>
@@ -1290,6 +1359,6 @@
     <!-- Toast -->
     <div class="toast-container" id="toastContainer"></div>
 
-    <script src="app.js?v=29"></script>
+    <script src="app.js?v=32"></script>
 </body>
 </html>

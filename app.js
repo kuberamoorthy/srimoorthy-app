@@ -116,12 +116,92 @@ function saveNotifications(notifs) {
     setStore(STORAGE_KEYS.notifications, notifs);
 }
 
-function getNextBillNumber() {
-    let counter = getStore(STORAGE_KEYS.billCounter) || 0;
-    counter++;
-    setStore(STORAGE_KEYS.billCounter, counter);
-    return 'SM-' + String(counter).padStart(4, '0');
+function getHighestExistingBillNumber() {
+    const bills = getBills();
+    let max = 0;
+    bills.forEach(b => {
+        if (b && b.billNumber) {
+            const m = String(b.billNumber).match(/(\d+)$/);
+            if (m) {
+                const n = parseInt(m[1], 10);
+                if (n > max) max = n;
+            }
+        }
+    });
+    return max;
 }
+
+function recalibrateBillCounter() {
+    const bills = getBills();
+    const stored = getStore(STORAGE_KEYS.billCounter);
+    // If no bills exist at all in storage, start counter clean at 0 (first bill is SM-0001)
+    if (!bills || bills.length === 0) {
+        if (stored === null || stored === undefined || stored > 0) {
+            setStore(STORAGE_KEYS.billCounter, 0);
+        }
+        return;
+    }
+    // If stored counter is undefined, initialize to highest existing bill
+    if (stored === null || stored === undefined) {
+        setStore(STORAGE_KEYS.billCounter, getHighestExistingBillNumber());
+    }
+}
+
+function peekNextBillNumber() {
+    let storedCounter = getStore(STORAGE_KEYS.billCounter);
+    if (storedCounter === null || storedCounter === undefined) {
+        const bills = getBills();
+        storedCounter = (bills && bills.length > 0) ? getHighestExistingBillNumber() : 0;
+        setStore(STORAGE_KEYS.billCounter, storedCounter);
+    }
+    const nextVal = Math.max(0, parseInt(storedCounter, 10)) + 1;
+    return 'SM-' + String(nextVal).padStart(4, '0');
+}
+
+function getNextBillNumber() {
+    // Non-mutating: preview next available number without incrementing counter until booked
+    return peekNextBillNumber();
+}
+
+function commitBillNumber(billNumberStr) {
+    if (!billNumberStr) return;
+    const m = String(billNumberStr).match(/(\d+)$/);
+    if (m) {
+        const num = parseInt(m[1], 10);
+        // Explicitly set the stored counter to the number that was just booked
+        setStore(STORAGE_KEYS.billCounter, num);
+    }
+}
+
+function resetBillNumber(newStartingNumber = 1) {
+    const val = Math.max(1, parseInt(newStartingNumber, 10) || 1);
+    const counterVal = val - 1; // e.g. Starting with 1 means counter is 0, so nextVal is 0+1=1 -> SM-0001
+    setStore(STORAGE_KEYS.billCounter, counterVal);
+    const formatted = 'SM-' + String(val).padStart(4, '0');
+    const billNumberInput = document.getElementById('billNumber');
+    if (billNumberInput) {
+        billNumberInput.value = formatted;
+    }
+    showToast(`Bill sequence reset to ${formatted} ✅ (Next bill will be ${formatted})`, 'success');
+}
+window.resetBillNumber = resetBillNumber;
+
+function promptResetBillNumber() {
+    const current = document.getElementById('billNumber')?.value || peekNextBillNumber();
+    const currentDigits = current.replace(/\D/g, '') || '1';
+    const input = prompt(
+        'Enter starting bill number sequence (e.g. 1 for SM-0001):\n\n(Note: Opening the bill modal without booking will NEVER advance or change the bill number.)',
+        '1'
+    );
+    if (input === null) return;
+    const val = parseInt(input.trim(), 10);
+    if (isNaN(val) || val < 1) {
+        showToast('Please enter a valid positive number (e.g. 1 for SM-0001)', 'error');
+        return;
+    }
+    resetBillNumber(val);
+}
+window.promptResetBillNumber = promptResetBillNumber;
 
 function isValidUUID(str) {
     return typeof str === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
@@ -501,6 +581,9 @@ function initApp() {
 
     // Populate vehicle dropdowns
     populateVehicleDropdowns();
+
+    // Recalibrate bill counter so unbooked modal opens do not artificially advance bill numbers
+    recalibrateBillCounter();
 
     // Populate month filter
     populateMonthFilter();
@@ -1059,11 +1142,15 @@ function saveBill(event) {
         }
         showToast('Bill updated successfully! ✅', 'success');
     } else {
-        // New bill
+        // New bill booking: commit the bill number to the sequence now!
+        const assignedNumber = (document.getElementById('billNumber').value || '').trim() || peekNextBillNumber();
+        billData.billNumber = assignedNumber;
+        commitBillNumber(assignedNumber);
+
         billData.createdAt = new Date().toISOString();
         bills.push(billData);
         addNotification(`New bill ${billData.billNumber} created for ${billData.customerName}`);
-        showToast('Bill created successfully! 🎉', 'success');
+        showToast(`Bill ${billData.billNumber} created successfully! 🎉`, 'success');
     }
 
     saveBills(bills);
@@ -1462,6 +1549,115 @@ function getPreviousOdometer(vehicleId, currentEntryId = null) {
     return parseFloat(logs[0].odometer) || null;
 }
 
+function onFuelStationChange() {
+    const sel = document.getElementById('fuelStation');
+    const wrap = document.getElementById('fuelStationCustomWrap');
+    const custom = document.getElementById('fuelStationCustom');
+    if (sel && wrap) {
+        if (sel.value === 'OTHER') {
+            wrap.style.display = 'block';
+            if (custom) custom.focus();
+        } else {
+            wrap.style.display = 'none';
+        }
+    }
+}
+window.onFuelStationChange = onFuelStationChange;
+
+function onFuelDriverChange() {
+    const sel = document.getElementById('fuelDriver');
+    const wrap = document.getElementById('fuelDriverCustomWrap');
+    const custom = document.getElementById('fuelDriverCustom');
+    if (sel && wrap) {
+        if (sel.value === 'OTHER') {
+            wrap.style.display = 'block';
+            if (custom) custom.focus();
+        } else {
+            wrap.style.display = 'none';
+        }
+    }
+}
+window.onFuelDriverChange = onFuelDriverChange;
+
+function getSelectedFuelStation() {
+    const sel = document.getElementById('fuelStation');
+    const custom = document.getElementById('fuelStationCustom');
+    if (!sel) return 'Kumbakonam (Main)';
+    if (sel.value === 'OTHER') {
+        return (custom ? custom.value.trim() : '') || 'Kumbakonam (Main)';
+    }
+    return sel.value || 'Kumbakonam (Main)';
+}
+
+function setFuelStationValue(val) {
+    const sel = document.getElementById('fuelStation');
+    const wrap = document.getElementById('fuelStationCustomWrap');
+    const custom = document.getElementById('fuelStationCustom');
+    if (!sel) return;
+    if (!val) {
+        sel.value = 'Kumbakonam (Main)';
+        if (wrap) wrap.style.display = 'none';
+        return;
+    }
+    let found = false;
+    for (let i = 0; i < sel.options.length; i++) {
+        if (sel.options[i].value === val || sel.options[i].value.toLowerCase() === val.toLowerCase()) {
+            sel.selectedIndex = i;
+            found = true;
+            break;
+        }
+    }
+    if (found) {
+        if (wrap) wrap.style.display = 'none';
+    } else {
+        sel.value = 'OTHER';
+        if (wrap) {
+            wrap.style.display = 'block';
+            if (custom) custom.value = val;
+        }
+    }
+}
+
+function getSelectedFuelDriver() {
+    const sel = document.getElementById('fuelDriver');
+    const custom = document.getElementById('fuelDriverCustom');
+    if (!sel) return '';
+    if (sel.value === 'OTHER') {
+        return (custom ? custom.value.trim() : '');
+    }
+    return sel.value || '';
+}
+
+function setFuelDriverValue(val) {
+    const sel = document.getElementById('fuelDriver');
+    const wrap = document.getElementById('fuelDriverCustomWrap');
+    const custom = document.getElementById('fuelDriverCustom');
+    if (!sel) return;
+    if (!val) {
+        sel.value = '';
+        if (wrap) wrap.style.display = 'none';
+        return;
+    }
+    let found = false;
+    const cleanVal = val.trim().toUpperCase();
+    for (let i = 0; i < sel.options.length; i++) {
+        if (sel.options[i].value.toUpperCase() === cleanVal) {
+            sel.selectedIndex = i;
+            found = true;
+            break;
+        }
+    }
+    if (found) {
+        if (wrap) wrap.style.display = 'none';
+    } else {
+        sel.value = 'OTHER';
+        if (wrap) {
+            wrap.style.display = 'block';
+            if (custom) custom.value = val;
+        }
+    }
+}
+
 function openFuelModal(fuelId) {
     const modal = document.getElementById('fuelModal');
     const form = document.getElementById('fuelForm');
@@ -1476,7 +1672,7 @@ function openFuelModal(fuelId) {
         document.getElementById('fuelId').value = entry.id;
         document.getElementById('fuelDate').value = entry.date;
         document.getElementById('fuelVehicle').value = entry.vehicleId;
-        document.getElementById('fuelStation').value = entry.station || '';
+        setFuelStationValue(entry.station || 'Kumbakonam (Main)');
         document.getElementById('fuelType').value = entry.fuelType || 'diesel';
         document.getElementById('fuelLitres').value = entry.litres;
         document.getElementById('fuelRate').value = entry.rate;
@@ -1484,13 +1680,15 @@ function openFuelModal(fuelId) {
         if (totalAmountEl) totalAmountEl.value = entry.totalAmount;
         document.getElementById('fuelTotal').value = formatCurrency(entry.totalAmount);
         document.getElementById('fuelOdometer').value = entry.odometer || '';
-        document.getElementById('fuelDriver').value = entry.driver || '';
+        setFuelDriverValue(entry.driver || '');
         document.getElementById('fuelNotes').value = entry.notes || '';
         if (rateBadge) rateBadge.textContent = `Recorded: ₹${parseFloat(entry.rate).toFixed(2)}/L`;
     } else {
         document.getElementById('fuelModalTitle').textContent = 'Add Fuel Entry';
         document.getElementById('fuelId').value = '';
         document.getElementById('fuelDate').value = new Date().toISOString().split('T')[0];
+        setFuelStationValue('Kumbakonam (Main)');
+        setFuelDriverValue('');
         const defaultRate = getLatestFuelRate(null, 'diesel');
         document.getElementById('fuelRate').value = defaultRate.toFixed(2);
         document.getElementById('fuelLitres').value = '';
@@ -1700,16 +1898,19 @@ function saveFuel(event) {
     const rate = parseFloat(document.getElementById('fuelRate').value) || 0;
     const totalAmount = parseFloat(document.getElementById('fuelTotalAmount')?.value) || (litres * rate);
 
+    const station = getSelectedFuelStation();
+    const driver = getSelectedFuelDriver();
+
     const fuelData = {
         date: document.getElementById('fuelDate').value,
         vehicleId: document.getElementById('fuelVehicle').value,
-        station: document.getElementById('fuelStation').value,
+        station,
         fuelType: document.getElementById('fuelType').value,
         litres,
         rate,
         totalAmount,
         odometer: document.getElementById('fuelOdometer').value ? parseFloat(document.getElementById('fuelOdometer').value) : null,
-        driver: document.getElementById('fuelDriver').value,
+        driver,
         notes: document.getElementById('fuelNotes').value,
         updatedAt: new Date().toISOString()
     };
@@ -1809,23 +2010,6 @@ function renderFuelSummary(logs) {
     const totalLitres = logs.reduce((s, f) => s + (parseFloat(f.litres) || 0), 0);
     const avgRate = logs.length > 0 && totalLitres > 0 ? totalCost / totalLitres : 0;
 
-    // Calculate fleet average mileage across all trucks
-    let totalFleetDistance = 0;
-    let totalFleetMileageLitres = 0;
-    const vehicles = getVehicles();
-    vehicles.forEach(v => {
-        const vLogs = logs.filter(f => f.vehicleId === v.id && f.odometer).sort((a,b) => new Date(a.date) - new Date(b.date));
-        if (vLogs.length >= 2) {
-            const vDist = parseFloat(vLogs[vLogs.length - 1].odometer) - parseFloat(vLogs[0].odometer);
-            const vLtrs = vLogs.slice(1).reduce((sum, item) => sum + (parseFloat(item.litres) || 0), 0);
-            if (vDist > 0 && vLtrs > 0) {
-                totalFleetDistance += vDist;
-                totalFleetMileageLitres += vLtrs;
-            }
-        }
-    });
-    const avgMileage = totalFleetMileageLitres > 0 ? (totalFleetDistance / totalFleetMileageLitres).toFixed(1) + ' km/L' : '11.5 km/L';
-
     document.getElementById('fuelSummaryRow').innerHTML = `
         <div class="fuel-summary-card">
             <div class="fuel-summary-icon" style="background:var(--red-light);color:var(--red);">💰</div>
@@ -1849,10 +2033,10 @@ function renderFuelSummary(logs) {
             </div>
         </div>
         <div class="fuel-summary-card">
-            <div class="fuel-summary-icon" style="background:rgba(16,185,129,0.15);color:#10b981;">⚡</div>
+            <div class="fuel-summary-icon" style="background:rgba(16,185,129,0.15);color:#10b981;">📋</div>
             <div>
-                <span class="fuel-summary-label">Fleet Mileage</span>
-                <span class="fuel-summary-value" style="color:#10b981;">${avgMileage}</span>
+                <span class="fuel-summary-label">Fuel Entries</span>
+                <span class="fuel-summary-value" style="color:#10b981;">${logs.length} Logs</span>
             </div>
         </div>`;
 }
@@ -3642,8 +3826,8 @@ window.resetDatabase = resetDatabase;
 
 
 const SUPABASE_SCHEMA_SQL = `-- ========================================================
--- SRI MOORTHY TRANSPORT - COMPLETE SUPABASE DATABASE SETUP
--- Run this in your Supabase SQL Editor:
+-- SRI MOORTHY TRANSPORT - SUPABASE DATABASE SETUP
+-- Paste and run this in your Supabase SQL Editor:
 -- https://supabase.com/dashboard/project/gusrwwwoammurxzwywmy/sql/new
 -- ========================================================
 
@@ -3721,12 +3905,13 @@ VALUES
     ('DOST+', 'TN82K1945', 'DOST+', '#10b981', 'active')
 ON CONFLICT (number) DO NOTHING;
 
--- 7. ROW LEVEL SECURITY (RLS) POLICIES
+-- 7. ENABLE ROW LEVEL SECURITY (RLS)
 ALTER TABLE public.vehicles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.bills ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.fuel_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.app_settings ENABLE ROW LEVEL SECURITY;
 
+-- 8. RLS POLICIES (FULL READ & WRITE ACCESS)
 DROP POLICY IF EXISTS "Allow public read access to vehicles" ON public.vehicles;
 DROP POLICY IF EXISTS "Allow public write access to vehicles" ON public.vehicles;
 CREATE POLICY "Allow public read access to vehicles" ON public.vehicles FOR SELECT USING (true);
@@ -3747,44 +3932,21 @@ DROP POLICY IF EXISTS "Allow public write access to app_settings" ON public.app_
 CREATE POLICY "Allow public read access to app_settings" ON public.app_settings FOR SELECT USING (true);
 CREATE POLICY "Allow public write access to app_settings" ON public.app_settings FOR ALL USING (true) WITH CHECK (true);
 
--- 8. STORAGE BUCKET & POLICIES (FOR JSON BACKUP FALLBACK)
-INSERT INTO storage.buckets (id, name, public) 
-VALUES ('fleet_storage', 'fleet_storage', true)
-ON CONFLICT (id) DO UPDATE SET public = true;
-
-DROP POLICY IF EXISTS "Public Select Storage" ON storage.objects;
-CREATE POLICY "Public Select Storage" ON storage.objects FOR SELECT USING (bucket_id = 'fleet_storage');
-
-DROP POLICY IF EXISTS "Public Insert Storage" ON storage.objects;
-CREATE POLICY "Public Insert Storage" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'fleet_storage');
-
-DROP POLICY IF EXISTS "Public Update Storage" ON storage.objects;
-CREATE POLICY "Public Update Storage" ON storage.objects FOR UPDATE USING (bucket_id = 'fleet_storage') WITH CHECK (bucket_id = 'fleet_storage');
-
-DROP POLICY IF EXISTS "Public Delete Storage" ON storage.objects;
-CREATE POLICY "Public Delete Storage" ON storage.objects FOR DELETE USING (bucket_id = 'fleet_storage');
-
--- 9. REALTIME SUBSCRIPTIONS
+-- 9. SAFE REALTIME ACTIVATION
 DO $$
 BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_publication_tables 
-        WHERE pubname = 'supabase_realtime' AND tablename = 'vehicles'
-    ) THEN
+    BEGIN
         ALTER PUBLICATION supabase_realtime ADD TABLE public.vehicles;
-    END IF;
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_publication_tables 
-        WHERE pubname = 'supabase_realtime' AND tablename = 'bills'
-    ) THEN
+    EXCEPTION WHEN OTHERS THEN NULL;
+    END;
+    BEGIN
         ALTER PUBLICATION supabase_realtime ADD TABLE public.bills;
-    END IF;
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_publication_tables 
-        WHERE pubname = 'supabase_realtime' AND tablename = 'fuel_logs'
-    ) THEN
+    EXCEPTION WHEN OTHERS THEN NULL;
+    END;
+    BEGIN
         ALTER PUBLICATION supabase_realtime ADD TABLE public.fuel_logs;
-    END IF;
+    EXCEPTION WHEN OTHERS THEN NULL;
+    END;
 END $$;`;
 
 function copySupabaseSql() {
