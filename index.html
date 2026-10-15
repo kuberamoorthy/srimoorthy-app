@@ -14,7 +14,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Outfit:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=32">
+    <link rel="stylesheet" href="style.css?v=34">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
@@ -174,38 +174,41 @@
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
                     Call: 8940481999
                 </a>
+
+                <div class="sidebar-divider"></div>
+
+                <div class="sidebar-status-box">
+                    <div class="sidebar-status-header">
+                        <span>Cloud Architecture</span>
+                        <span class="sidebar-status-ping">● 24ms</span>
+                    </div>
+                    <div style="font-size:11px;color:var(--text-secondary);display:flex;align-items:center;justify-content:space-between;">
+                        <span>Database Engine</span>
+                        <strong style="color:var(--text-primary);" id="sidebarDbEngine">Supabase Cloud</strong>
+                    </div>
+                    <button type="button" class="sidebar-mode-toggle" onclick="toggleThemeMode()">
+                        <span class="mode-label-text">Obsidian Dark</span>
+                        <span>🌓</span>
+                    </button>
+                </div>
+                <div class="sidebar-theme-wrap">
+                    <div class="sidebar-theme-title">
+                        <span>Accent Theme</span>
+                        <span id="sidebarActiveTheme">Orange</span>
+                    </div>
+                    <div class="theme-swatches-grid">
+                        <button type="button" class="theme-swatch-btn orange active" data-color="orange" onclick="setAppThemeColor('orange')" title="Transport Orange"></button>
+                        <button type="button" class="theme-swatch-btn blue" data-color="blue" onclick="setAppThemeColor('blue')" title="Electric Blue"></button>
+                        <button type="button" class="theme-swatch-btn green" data-color="green" onclick="setAppThemeColor('green')" title="Emerald Green"></button>
+                        <button type="button" class="theme-swatch-btn purple" data-color="purple" onclick="setAppThemeColor('purple')" title="Royal Purple"></button>
+                        <button type="button" class="theme-swatch-btn red" data-color="red" onclick="setAppThemeColor('red')" title="Crimson Red"></button>
+                    </div>
+                </div>
+                <div class="sidebar-footer">
+                    <p>© 2024 Sri Moorthy Transport</p>
+                    <p>Version 1.0.0</p>
+                </div>
             </nav>
-            <div class="sidebar-status-box">
-                <div class="sidebar-status-header">
-                    <span>Cloud Architecture</span>
-                    <span class="sidebar-status-ping">● 24ms</span>
-                </div>
-                <div style="font-size:11px;color:var(--text-secondary);display:flex;align-items:center;justify-content:space-between;">
-                    <span>Database Engine</span>
-                    <strong style="color:var(--text-primary);" id="sidebarDbEngine">Supabase Cloud</strong>
-                </div>
-                <button type="button" class="sidebar-mode-toggle" onclick="toggleThemeMode()">
-                    <span class="mode-label-text">Obsidian Dark</span>
-                    <span>🌓</span>
-                </button>
-            </div>
-            <div class="sidebar-theme-wrap">
-                <div class="sidebar-theme-title">
-                    <span>Accent Theme</span>
-                    <span id="sidebarActiveTheme">Orange</span>
-                </div>
-                <div class="theme-swatches-grid">
-                    <button type="button" class="theme-swatch-btn orange active" data-color="orange" onclick="setAppThemeColor('orange')" title="Transport Orange"></button>
-                    <button type="button" class="theme-swatch-btn blue" data-color="blue" onclick="setAppThemeColor('blue')" title="Electric Blue"></button>
-                    <button type="button" class="theme-swatch-btn green" data-color="green" onclick="setAppThemeColor('green')" title="Emerald Green"></button>
-                    <button type="button" class="theme-swatch-btn purple" data-color="purple" onclick="setAppThemeColor('purple')" title="Royal Purple"></button>
-                    <button type="button" class="theme-swatch-btn red" data-color="red" onclick="setAppThemeColor('red')" title="Crimson Red"></button>
-                </div>
-            </div>
-            <div class="sidebar-footer">
-                <p>© 2024 Sri Moorthy Transport</p>
-                <p>Version 1.0.0</p>
-            </div>
         </aside>
 
         <!-- Notification Panel -->
@@ -621,33 +624,50 @@
                     <div id="reportFuelSection" class="report-txn-list" style="display:none;"></div>
                 </div>
             </section>
-
         </main>
 
-        <!-- Bottom Navigation -->
+        <!-- Bottom Navigation (Floating Pill Dock) -->
         <nav class="bottom-nav" id="bottomNav">
-            <button class="nav-tab active" data-page="dashboard" onclick="navigateTo('dashboard')">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+            <button class="nav-tab active" data-page="dashboard" onclick="navigateTo('dashboard')" title="Dashboard / Home">
+                <svg width="22" height="22" viewBox="0 0 24 24" class="nav-icon home-icon" fill="currentColor">
+                    <path d="M12 2.5a1.5 1.5 0 0 0-1.02.42L3.6 8.7A1.5 1.5 0 0 0 3 9.85V19.5a2 2 0 0 0 2 2h4.5a1 1 0 0 0 1-1v-4.5a1.5 1.5 0 0 1 1.5-1.5h0a1.5 1.5 0 0 1 1.5 1.5V20.5a1 1 0 0 0 1 1H19a2 2 0 0 0 2-2V9.85a1.5 1.5 0 0 0-.6-1.15L13.02 2.92A1.5 1.5 0 0 0 12 2.5z"/>
+                </svg>
                 <span>Home</span>
             </button>
-            <button class="nav-tab" data-page="billing" onclick="navigateTo('billing')">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            <button class="nav-tab" data-page="vehicles" onclick="navigateTo('vehicles')" title="Fleet / Vehicles">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="nav-icon">
+                    <rect x="2" y="4" width="13" height="12" rx="2.5"/>
+                    <path d="M15 8h4.5a1 1 0 0 1 .8.4l2.2 2.8a1 1 0 0 1 .2.6V16h-7.7"/>
+                    <circle cx="6" cy="18" r="2.2" fill="currentColor"/>
+                    <circle cx="17.5" cy="18" r="2.2" fill="currentColor"/>
+                </svg>
+                <span>Fleet</span>
+            </button>
+            <button class="nav-tab fab" onclick="openQuickAdd()" title="Power Operations" aria-label="Quick Power Operations">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M18.36 6.64a9 9 0 1 1-12.73 0"/>
+                    <line x1="12" y1="2" x2="12" y2="12"/>
+                </svg>
+            </button>
+            <button class="nav-tab" data-page="billing" onclick="navigateTo('billing')" title="Billing & Invoices">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="nav-icon">
+                    <path d="M6 2h12a2 2 0 0 1 2 2v16a1 1 0 0 1-1.6.8L15 18.5l-3 2.3-3-2.3-3.4 2.3A1 1 0 0 1 4 20V4a2 2 0 0 1 2-2z"/>
+                    <line x1="8" y1="8" x2="16" y2="8"/>
+                    <line x1="8" y1="12" x2="16" y2="12"/>
+                </svg>
                 <span>Bills</span>
             </button>
-            <button class="nav-tab fab" onclick="openQuickAdd()">
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            </button>
-            <button class="nav-tab" data-page="fuel" onclick="navigateTo('fuel')">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 22V6a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v16"/><path d="M13 10h4a2 2 0 0 1 2 2v8"/><line x1="3" y1="22" x2="23" y2="22"/></svg>
-                <span>Fuel</span>
-            </button>
-            <button class="nav-tab" data-page="vehicles" onclick="navigateTo('vehicles')">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
-                <span>Fleet</span>
+            <button class="nav-tab" data-page="reports" onclick="navigateTo('reports')" title="Fleet & Financial Reports">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="nav-icon">
+                    <line x1="18" y1="20" x2="18" y2="10"/>
+                    <line x1="12" y1="20" x2="12" y2="4"/>
+                    <line x1="6" y1="20" x2="6" y2="14"/>
+                </svg>
+                <span>Report</span>
             </button>
         </nav>
 
-        <!-- Quick Add Menu -->
+        <!-- Quick Add Menu (Create Bill & Add Fuel Only) -->
         <div class="quick-add-overlay" id="quickAddOverlay" onclick="closeQuickAdd()"></div>
         <div class="quick-add-menu" id="quickAddMenu">
             <button class="quick-add-item" onclick="closeQuickAdd(); navigateTo('billing'); setTimeout(()=>document.getElementById('newBillBtn').click(), 300)">
