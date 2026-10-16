@@ -14,7 +14,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Outfit:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=34">
+    <link rel="stylesheet" href="style.css?v=35">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
@@ -358,6 +358,21 @@
                             <div class="stat-progress-bar purple" style="width: 45%;"></div>
                         </div>
                     </div>
+                    <div class="stat-card-app glow-green" id="statCardNetProfit">
+                        <div class="stat-card-top-row">
+                            <div class="stat-card-icon emerald" style="background:rgba(16,185,129,0.15);color:#10b981;">
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/></svg>
+                            </div>
+                            <span class="stat-trend-chip green" id="netProfitMarginBadge">+0% Margin</span>
+                        </div>
+                        <div class="stat-card-info">
+                            <span class="stat-card-label">Net Profit</span>
+                            <span class="stat-card-value" id="totalNetProfit" style="color:var(--green, #10b981);">₹0</span>
+                        </div>
+                        <div class="stat-progress-track">
+                            <div class="stat-progress-bar green" id="netProfitProgressBar" style="width: 100%;"></div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Quick Actions -->
@@ -367,6 +382,10 @@
                         <button class="quick-action-btn" onclick="navigateTo('billing'); setTimeout(()=>document.getElementById('newBillBtn').click(), 300)">
                             <div class="qa-icon orange"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div>
                             <span>New Bill</span>
+                        </button>
+                        <button class="quick-action-btn" onclick="openDriverSalaryModal()">
+                            <div class="qa-icon emerald" style="background:rgba(16,185,129,0.15);color:#10B981;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/><path d="M16 11h6m-3-3v6"/></svg></div>
+                            <span>Driver Salary</span>
                         </button>
                         <button class="quick-action-btn" onclick="navigateTo('fuel'); setTimeout(()=>document.getElementById('addFuelBtn').click(), 300)">
                             <div class="qa-icon green"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 22V6a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v16"/><path d="M13 10h4a2 2 0 0 1 2 2v8"/><line x1="3" y1="22" x2="23" y2="22"/></svg></div>
@@ -427,14 +446,52 @@
                         <h2 class="page-title">Billing</h2>
                         <p class="page-subtitle">Create and manage transport bills</p>
                     </div>
-                    <div style="display:flex;gap:8px;align-items:center;">
+                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
                         <button class="btn-secondary-app" onclick="promptResetBillNumber()" title="Reset bill sequence back to SM-0001">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
                             Reset Bill #
                         </button>
+                        <button class="btn-primary-app btn-driver-salary-box" id="addDriverSalaryBtn" onclick="openDriverSalaryModal()" title="Add Driver Salary Payout">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/><path d="M16 11h6m-3-3v6"/></svg>
+                            <span>+ Add Driver Salary</span>
+                        </button>
                         <button class="btn-primary-app" id="newBillBtn" onclick="openBillModal()">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                             New Bill
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Driver Salary Quick Selection Box (Kumar, Saravanan, Thanda Padi) -->
+                <div class="driver-salary-quick-box">
+                    <div class="dsq-left">
+                        <div class="dsq-icon">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/><path d="M16 11h6m-3-3v6"/></svg>
+                        </div>
+                        <div class="dsq-text">
+                            <span class="dsq-title" style="color:#000000;font-weight:800;">Add Driver Salary</span>
+                            <span class="dsq-sub">Click driver or checkbox to add salary payout</span>
+                        </div>
+                    </div>
+                    <div class="dsq-drivers">
+                        <button type="button" class="btn-dsq-driver" onclick="openDriverSalaryModalWith('Kumar')">
+                            <span class="dsq-chk-pill"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5"><polyline points="20 6 9 17 4 12"/></svg></span>
+                            <span class="dsq-avatar avatar-kumar">K</span>
+                            <span class="dsq-name" style="color:#000000;font-weight:800;">Kumar</span>
+                        </button>
+                        <button type="button" class="btn-dsq-driver" onclick="openDriverSalaryModalWith('Saravanan')">
+                            <span class="dsq-chk-pill"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5"><polyline points="20 6 9 17 4 12"/></svg></span>
+                            <span class="dsq-avatar avatar-saravanan">S</span>
+                            <span class="dsq-name" style="color:#000000;font-weight:800;">Saravanan</span>
+                        </button>
+                        <button type="button" class="btn-dsq-driver" onclick="openDriverSalaryModalWith('Thanda Padi')">
+                            <span class="dsq-chk-pill"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5"><polyline points="20 6 9 17 4 12"/></svg></span>
+                            <span class="dsq-avatar avatar-thandapadi">T</span>
+                            <span class="dsq-name" style="color:#000000;font-weight:800;">Thanda Padi</span>
+                        </button>
+                        <button type="button" class="btn-dsq-add" onclick="openDriverSalaryModal()">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                            <span>+ More / Other</span>
                         </button>
                     </div>
                 </div>
@@ -447,6 +504,14 @@
                     </div>
                     <select id="billVehicleFilter" onchange="filterBills()">
                         <option value="">All Vehicles</option>
+                    </select>
+                    <select id="billTypeFilter" onchange="filterBills()">
+                        <option value="all">All Trip Types</option>
+                        <option value="standard">Standard Trips Only</option>
+                        <option value="local">⚡ Local Income Trips</option>
+                        <option value="salary">👤 Driver Salary (All)</option>
+                        <option value="salary_unpaid">⏳ Driver Salary: Unpaid</option>
+                        <option value="salary_paid">✓ Driver Salary: Paid</option>
                     </select>
                     <select id="billStatusFilter" onchange="filterBills()">
                         <option value="">All Status</option>
@@ -618,10 +683,12 @@
                         <div class="report-tab-pills" id="reportTxnPills">
                             <button class="report-pill active" id="pillShowBills" onclick="switchReportTxnTab('bills')">Bills (<span id="periodBillsCount">0</span>)</button>
                             <button class="report-pill" id="pillShowFuel" onclick="switchReportTxnTab('fuel')">Fuel Logs (<span id="periodFuelCount">0</span>)</button>
+                            <button class="report-pill" id="pillShowSalary" onclick="switchReportTxnTab('salary')">Driver Salary (<span id="periodSalaryCount">0</span>)</button>
                         </div>
                     </div>
                     <div id="reportBillsSection" class="report-txn-list"></div>
                     <div id="reportFuelSection" class="report-txn-list" style="display:none;"></div>
+                    <div id="reportSalarySection" class="report-txn-list" style="display:none;"></div>
                 </div>
             </section>
         </main>
@@ -682,6 +749,12 @@
                 </div>
                 <span>Add Fuel</span>
             </button>
+            <button class="quick-add-item" onclick="closeQuickAdd(); openDriverSalaryModal()">
+                <div class="qa-item-icon emerald" style="background:rgba(16,185,129,0.15);color:#10B981;">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/><path d="M16 11h6m-3-3v6"/></svg>
+                </div>
+                <span>Driver Salary</span>
+            </button>
         </div>
     </div>
 
@@ -716,7 +789,7 @@
                             <option value="">Select Vehicle</option>
                         </select>
                     </div>
-                    <div class="form-row">
+                    <div class="form-row" id="billCustomerDetailsRow">
                         <div class="form-group">
                             <label>Customer Name</label>
                             <input type="text" id="customerName" placeholder="Enter customer name" required>
@@ -726,6 +799,12 @@
                             <input type="tel" id="customerPhone" placeholder="Phone number">
                         </div>
                     </div>
+                    <!-- Local Trip Notice replacing customer fields when checked -->
+                    <div id="localTripCustomerNotice" class="local-trip-notice" style="display:none;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                        <span><strong>Local Income Run:</strong> Customer details are omitted. Accounted as direct local trip income.</span>
+                    </div>
+
                     <div class="form-row">
                         <div class="form-group">
                             <label>From Location</label>
@@ -739,6 +818,23 @@
                     <div class="form-group">
                         <label>Goods Description</label>
                         <textarea id="goodsDesc" placeholder="Describe the goods being transported" rows="2"></textarea>
+                    </div>
+                    
+                    <!-- Trip Classification Card (Local Income Option) -->
+                    <div class="bill-options-card">
+                        <div class="bill-option-row" style="margin-bottom:0;">
+                            <label class="bill-custom-check" for="isLocalIncome">
+                                <input type="checkbox" id="isLocalIncome" onchange="onLocalIncomeTripToggle()">
+                                <span class="check-box-indicator"></span>
+                                <div class="check-text-wrap">
+                                    <div class="check-title-row">
+                                        <span class="check-title">Local Income Trip</span>
+                                        <span class="chip-local-trip">⚡ Local Trip</span>
+                                    </div>
+                                    <span class="check-sub">Hides customer details & accounts trip as direct local income</span>
+                                </div>
+                            </label>
+                        </div>
                     </div>
                     
                     <!-- Line Items -->
@@ -801,6 +897,162 @@
                         <div style="display:flex;gap:10px;margin-left:auto;">
                             <button type="button" class="btn-secondary-app" onclick="closeBillModal()">Cancel</button>
                             <button type="submit" class="btn-primary-app">Save Bill</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Driver Salary Modal -->
+    <div class="modal-overlay" id="driverSalaryModal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title-with-icon">
+                    <div class="modal-icon-badge emerald" style="width:38px;height:38px;border-radius:10px;background:rgba(16,185,129,0.15);color:#10b981;display:flex;align-items:center;justify-content:center;">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/><path d="M16 11h6m-3-3v6"/></svg>
+                    </div>
+                    <div>
+                        <h3 id="driverSalaryModalTitle" style="margin:0;font-size:17px;">Add Driver Salary</h3>
+                        <p class="modal-subtitle" style="margin:2px 0 0 0;font-size:12px;color:var(--text-secondary);">Direct payout entry & operating expense calculation</p>
+                    </div>
+                </div>
+                <button class="modal-close" onclick="closeDriverSalaryModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <form id="driverSalaryForm" onsubmit="saveDriverSalary(event)">
+                    <input type="hidden" id="dsId">
+                    
+                    <!-- 1-Click Primary Driver Selection Cards with Checkboxes (Kumar, Saravanan, Thanda Padi) -->
+                    <div class="ds-primary-drivers-section">
+                        <label class="ds-section-label" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:4px;">
+                            <span>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.8" style="vertical-align:middle;margin-right:4px;"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                                Click Checkbox to Add Driver Name
+                            </span>
+                            <span class="ds-label-hint">Kumar • Saravanan • Thanda Padi</span>
+                        </label>
+                        <div class="ds-primary-drivers-grid">
+                            <div class="driver-checkbox-card" id="cardDriverKumar" onclick="onDriverCardClick('Kumar', event)">
+                                <div class="driver-card-checkbox-box">
+                                    <input type="checkbox" id="chkDriverKumar" class="driver-select-chk-input" onclick="event.stopPropagation()" onchange="onDriverCheckboxToggle('Kumar', this.checked)">
+                                    <span class="custom-driver-chk-ui">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="3.5">
+                                            <polyline points="20 6 9 17 4 12"/>
+                                        </svg>
+                                    </span>
+                                </div>
+                                <div class="driver-card-avatar avatar-kumar">K</div>
+                                <div class="driver-card-info">
+                                    <span class="driver-card-name" style="color:#000000;font-weight:800;">Kumar</span>
+                                    <span class="driver-card-role">Fleet Driver</span>
+                                </div>
+                            </div>
+                            <div class="driver-checkbox-card" id="cardDriverSaravanan" onclick="onDriverCardClick('Saravanan', event)">
+                                <div class="driver-card-checkbox-box">
+                                    <input type="checkbox" id="chkDriverSaravanan" class="driver-select-chk-input" onclick="event.stopPropagation()" onchange="onDriverCheckboxToggle('Saravanan', this.checked)">
+                                    <span class="custom-driver-chk-ui">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="3.5">
+                                            <polyline points="20 6 9 17 4 12"/>
+                                        </svg>
+                                    </span>
+                                </div>
+                                <div class="driver-card-avatar avatar-saravanan">S</div>
+                                <div class="driver-card-info">
+                                    <span class="driver-card-name" style="color:#000000;font-weight:800;">Saravanan</span>
+                                    <span class="driver-card-role">Fleet Driver</span>
+                                </div>
+                            </div>
+                            <div class="driver-checkbox-card" id="cardDriverThandaPadi" onclick="onDriverCardClick('Thanda Padi', event)">
+                                <div class="driver-card-checkbox-box">
+                                    <input type="checkbox" id="chkDriverThandaPadi" class="driver-select-chk-input" onclick="event.stopPropagation()" onchange="onDriverCheckboxToggle('Thanda Padi', this.checked)">
+                                    <span class="custom-driver-chk-ui">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="3.5">
+                                            <polyline points="20 6 9 17 4 12"/>
+                                        </svg>
+                                    </span>
+                                </div>
+                                <div class="driver-card-avatar avatar-thandapadi">T</div>
+                                <div class="driver-card-info">
+                                    <span class="driver-card-name" style="color:#000000;font-weight:800;">Thanda Padi</span>
+                                    <span class="driver-card-role">Fleet Driver</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Selected Driver / Custom Driver Input -->
+                        <div class="form-group" style="margin-top:12px;margin-bottom:0;">
+                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                                <label style="font-size:12px;margin:0;">Driver Name</label>
+                                <span style="font-size:11px;color:var(--text-muted);">Selected or type custom</span>
+                            </div>
+                            <input type="text" id="dsDriverName" placeholder="Enter or click driver above" required oninput="onDsDriverNameTyped(this.value)">
+                        </div>
+                    </div>
+
+                    <!-- Salary Amount (Manual entry + quick helper chips) -->
+                    <div class="form-group" style="margin-top:14px;">
+                        <label>Salary Amount (₹) <span style="font-size:11px;color:var(--green,#10B981);font-weight:700;">• Enter Manually</span></label>
+                        <div class="salary-amount-input-wrap">
+                            <span class="currency-symbol-large">₹</span>
+                            <input type="number" id="dsAmount" placeholder="0.00" min="0" step="0.01" required style="font-size:22px;font-weight:800;letter-spacing:0.5px;padding-left:36px;">
+                        </div>
+                        <!-- Quick Presets -->
+                        <div class="ds-presets-row" style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">
+                            <button type="button" class="btn-amount-chip" onclick="setDsAmount(300)">₹300</button>
+                            <button type="button" class="btn-amount-chip" onclick="setDsAmount(500)">₹500</button>
+                            <button type="button" class="btn-amount-chip" onclick="setDsAmount(800)">₹800</button>
+                            <button type="button" class="btn-amount-chip" onclick="setDsAmount(1000)">₹1,000</button>
+                            <button type="button" class="btn-amount-chip" onclick="setDsAmount(1500)">₹1,500</button>
+                            <button type="button" class="btn-amount-chip" onclick="setDsAmount(2000)">₹2,000</button>
+                        </div>
+                    </div>
+
+                    <!-- Payout Status (Paid vs Unpaid) -->
+                    <div class="form-group">
+                        <label>Payout Status</label>
+                        <input type="hidden" id="dsStatus" value="paid">
+                        <div class="payout-status-toggle">
+                            <button type="button" class="btn-payout-toggle paid active" id="btnDsPaid" onclick="setDsStatus('paid')">
+                                <span class="payout-icon">✓</span>
+                                <div class="payout-meta">
+                                    <strong>Paid</strong>
+                                    <small>Disbursed to driver</small>
+                                </div>
+                            </button>
+                            <button type="button" class="btn-payout-toggle unpaid" id="btnDsUnpaid" onclick="setDsStatus('unpaid')">
+                                <span class="payout-icon">⏳</span>
+                                <div class="payout-meta">
+                                    <strong>Unpaid</strong>
+                                    <small>Pending payout list</small>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Date</label>
+                            <input type="date" id="dsDate" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Vehicle <span style="font-size:11px;color:var(--text-muted);">(Optional)</span></label>
+                            <select id="dsVehicle">
+                                <option value="">General / All Fleet</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Notes / Trip Purpose</label>
+                        <textarea id="dsNotes" placeholder="e.g., Local run wage, Kumbakonam route allowance..." rows="2"></textarea>
+                    </div>
+
+                    <div class="modal-actions" style="display:flex;justify-content:space-between;align-items:center;">
+                        <button type="button" id="dsDeleteBtn" class="btn-secondary-app" style="display:none;color:var(--red);border-color:rgba(239,68,68,0.4);" onclick="deleteCurrentDriverSalary()">🗑️ Delete</button>
+                        <div style="display:flex;gap:10px;margin-left:auto;">
+                            <button type="button" class="btn-secondary-app" onclick="closeDriverSalaryModal()">Cancel</button>
+                            <button type="submit" class="btn-primary-app" style="background:linear-gradient(135deg, #10B981, #059669);border-color:rgba(16,185,129,0.5);">Save Driver Salary</button>
                         </div>
                     </div>
                 </form>

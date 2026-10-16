@@ -607,6 +607,15 @@ function initApp() {
         setStore('sm_visited', true);
     }
 
+    // Bind direct instant click for Add Driver Salary button
+    const addDsBtn = document.getElementById('addDriverSalaryBtn');
+    if (addDsBtn) {
+        addDsBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            openDriverSalaryModal();
+        });
+    }
+
     // Dismiss popovers on outside click
     document.addEventListener('click', (e) => {
         const themePopover = document.getElementById('themePickerPopover');
@@ -736,7 +745,7 @@ function closeQuickAdd() {
 // ===== VEHICLE DROPDOWNS =====
 function populateVehicleDropdowns() {
     const vehicles = getVehicles();
-    const selectors = ['billVehicle', 'fuelVehicle', 'billVehicleFilter', 'fuelVehicleFilter'];
+    const selectors = ['billVehicle', 'fuelVehicle', 'billVehicleFilter', 'fuelVehicleFilter', 'dsVehicle'];
     selectors.forEach(id => {
         const select = document.getElementById(id);
         if (!select) return;
@@ -767,21 +776,92 @@ function populateMonthFilter() {
     });
 }
 
+// Button Success Feedback Helper
+function animateButtonSuccess(btn, successText, callback) {
+    if (!btn) {
+        if (callback) callback();
+        return;
+    }
+    const origHtml = btn.dataset.origHtml || btn.innerHTML;
+    const origBg = btn.dataset.origBg || btn.style.background;
+    const origBorder = btn.dataset.origBorder || btn.style.borderColor;
+    btn.dataset.origHtml = origHtml;
+    btn.dataset.origBg = origBg;
+    btn.dataset.origBorder = origBorder;
+
+    btn.disabled = true;
+    btn.classList.add('btn-saved-success');
+    btn.innerHTML = `
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="3" style="vertical-align:middle;margin-right:6px;display:inline-block;animation:checkmarkBounce 0.4s ease;">
+            <polyline points="20 6 9 17 4 12"/>
+        </svg>
+        <span>${successText || 'Saved Successfully!'}</span>
+    `;
+
+    setTimeout(() => {
+        if (callback) callback();
+        setTimeout(() => {
+            btn.innerHTML = origHtml;
+            btn.style.background = origBg;
+            btn.style.borderColor = origBorder;
+            btn.disabled = false;
+            btn.classList.remove('btn-saved-success');
+        }, 350);
+    }, 700);
+}
+window.animateButtonSuccess = animateButtonSuccess;
+
 // ===== DASHBOARD =====
 function renderDashboard() {
     const bills = getBills();
     const fuel = getFuelLogs();
     const vehicles = getVehicles();
+    const salaries = typeof getDriverSalaries === 'function' ? getDriverSalaries() : [];
 
     // Stats
-    document.getElementById('totalVehicles').textContent = vehicles.length;
-    document.getElementById('totalBills').textContent = bills.length;
+    const totalVehiclesEl = document.getElementById('totalVehicles');
+    if (totalVehiclesEl) totalVehiclesEl.textContent = vehicles.length;
+
+    const totalBillsEl = document.getElementById('totalBills');
+    if (totalBillsEl) totalBillsEl.textContent = bills.length;
 
     const revenue = bills.reduce((sum, b) => sum + (parseFloat(b.grandTotal) || 0), 0);
-    document.getElementById('totalRevenue').textContent = formatCurrency(revenue);
+    const totalRevenueEl = document.getElementById('totalRevenue');
+    if (totalRevenueEl) totalRevenueEl.textContent = formatCurrency(revenue);
 
     const fuelCost = fuel.reduce((sum, f) => sum + (parseFloat(f.totalAmount) || 0), 0);
-    document.getElementById('totalFuelCost').textContent = formatCurrency(fuelCost);
+    const totalFuelCostEl = document.getElementById('totalFuelCost');
+    if (totalFuelCostEl) totalFuelCostEl.textContent = formatCurrency(fuelCost);
+
+    // Net Profit: Revenue - Fuel Cost - Driver Salaries
+    const salaryCost = salaries.reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0);
+    const legacyBillSalaries = bills.reduce((sum, b) => (b.addToDriverSalary && b.driverSalaryAmount) ? sum + (parseFloat(b.driverSalaryAmount) || 0) : sum, 0);
+    const totalExpenses = fuelCost + salaryCost + legacyBillSalaries;
+    const netProfit = revenue - totalExpenses;
+    const margin = revenue > 0 ? ((netProfit / revenue) * 100).toFixed(1) : '0.0';
+
+    const netProfitEl = document.getElementById('totalNetProfit');
+    const netProfitMarginEl = document.getElementById('netProfitMarginBadge');
+    const netProfitProgressEl = document.getElementById('netProfitProgressBar');
+    const netProfitCard = document.getElementById('statCardNetProfit');
+
+    if (netProfitEl) {
+        netProfitEl.textContent = formatCurrency(netProfit);
+        netProfitEl.style.color = netProfit >= 0 ? 'var(--green, #10b981)' : 'var(--red, #ef4444)';
+    }
+    if (netProfitMarginEl) {
+        netProfitMarginEl.textContent = `${netProfit >= 0 ? '+' : ''}${margin}% Margin`;
+        netProfitMarginEl.className = `stat-trend-chip ${netProfit >= 0 ? 'green' : 'red'}`;
+    }
+    if (netProfitProgressEl) {
+        const percent = revenue > 0 ? Math.min(100, Math.max(0, (netProfit / revenue) * 100)) : 0;
+        netProfitProgressEl.style.width = `${percent}%`;
+        netProfitProgressEl.className = `stat-progress-bar ${netProfit >= 0 ? 'green' : 'red'}`;
+    }
+    if (netProfitCard) {
+        netProfitCard.classList.toggle('glow-green', netProfit >= 0);
+        netProfitCard.classList.toggle('glow-red', netProfit < 0);
+    }
 
     // Recent Activity
     renderRecentActivity(bills, fuel);
@@ -947,6 +1027,363 @@ function renderVehicles() {
     }).join('');
 }
 
+// ===================================================
+// DRIVER SALARIES STORE & MANAGEMENT
+// ===================================================
+function getDriverSalaries() {
+    try {
+        const data = localStorage.getItem('sm_driver_salaries');
+        return data ? JSON.parse(data) : [];
+    } catch (e) {
+        console.error('Error reading driver salaries:', e);
+        return [];
+    }
+}
+window.getDriverSalaries = getDriverSalaries;
+
+function saveDriverSalaries(list) {
+    try {
+        localStorage.setItem('sm_driver_salaries', JSON.stringify(list));
+    } catch (e) {
+        console.error('Error saving driver salaries:', e);
+    }
+}
+window.saveDriverSalaries = saveDriverSalaries;
+
+// Helper: Known drivers from system (Kumar, Saravanan, Thanda Padi guaranteed)
+function getKnownDrivers() {
+    const known = new Set(['Kumar', 'Saravanan', 'Thanda Padi']);
+    getDriverSalaries().forEach(s => { if (s.driverName && s.driverName.trim()) known.add(s.driverName.trim()); });
+    getFuelLogs().forEach(f => { if (f.driver && f.driver.trim()) known.add(f.driver.trim()); });
+    getBills().forEach(b => { if (b.driverName && b.driverName.trim()) known.add(b.driverName.trim()); });
+    return Array.from(known).sort();
+}
+window.getKnownDrivers = getKnownDrivers;
+
+// Driver Salary Modal Controls
+function openDriverSalaryModal(salaryId, prefillDriverName) {
+    const modal = document.getElementById('driverSalaryModal');
+    if (!modal) return;
+
+    // Fast check: populate vehicle dropdown only if needed
+    const vSelect = document.getElementById('dsVehicle');
+    if (vSelect && (!vSelect.options || vSelect.options.length <= 1)) {
+        const vehicles = getVehicles();
+        vSelect.innerHTML = '<option value="">General / All Fleet</option>' + 
+            vehicles.map(v => `<option value="${v.id}">${v.name} (${v.number})</option>`).join('');
+    }
+
+    if (salaryId) {
+        const salaries = getDriverSalaries();
+        const item = salaries.find(s => s.id === salaryId);
+        if (item) {
+            document.getElementById('driverSalaryModalTitle').textContent = 'Edit Driver Salary';
+            document.getElementById('dsId').value = item.id;
+            document.getElementById('dsDriverName').value = item.driverName || '';
+            document.getElementById('dsAmount').value = item.amount || '';
+            document.getElementById('dsDate').value = item.date || new Date().toISOString().split('T')[0];
+            document.getElementById('dsVehicle').value = item.vehicleId || '';
+            document.getElementById('dsNotes').value = item.notes || '';
+            setDsStatus(item.status || 'paid');
+            highlightPrimaryDriverCard(item.driverName || '');
+            const delBtn = document.getElementById('dsDeleteBtn');
+            if (delBtn) delBtn.style.display = 'inline-flex';
+            modal.classList.add('show');
+            return;
+        }
+    }
+
+    // New Driver Salary
+    document.getElementById('driverSalaryModalTitle').textContent = 'Add Driver Salary';
+    document.getElementById('dsId').value = '';
+    document.getElementById('dsDate').value = new Date().toISOString().split('T')[0];
+    document.getElementById('dsAmount').value = '';
+    document.getElementById('dsNotes').value = '';
+    setDsStatus('paid');
+    const delBtn = document.getElementById('dsDeleteBtn');
+    if (delBtn) delBtn.style.display = 'none';
+
+    if (prefillDriverName) {
+        selectPrimaryDriver(prefillDriverName);
+    } else {
+        document.getElementById('dsDriverName').value = '';
+        highlightPrimaryDriverCard('');
+    }
+
+    modal.classList.add('show');
+}
+window.openDriverSalaryModal = openDriverSalaryModal;
+
+function openDriverSalaryModalWith(driverName) {
+    openDriverSalaryModal(null, driverName);
+}
+window.openDriverSalaryModalWith = openDriverSalaryModalWith;
+
+function closeDriverSalaryModal() {
+    const modal = document.getElementById('driverSalaryModal');
+    if (modal) modal.classList.remove('show');
+}
+window.closeDriverSalaryModal = closeDriverSalaryModal;
+
+function highlightPrimaryDriverCard(name) {
+    const clean = (name || '').trim().toLowerCase();
+    const isKumar = clean === 'kumar';
+    const isSaravanan = clean === 'saravanan';
+    const isThanda = clean.includes('thanda');
+
+    const kCard = document.getElementById('cardDriverKumar');
+    const sCard = document.getElementById('cardDriverSaravanan');
+    const tCard = document.getElementById('cardDriverThandaPadi');
+    if (kCard) kCard.classList.toggle('active', isKumar);
+    if (sCard) sCard.classList.toggle('active', isSaravanan);
+    if (tCard) tCard.classList.toggle('active', isThanda);
+
+    const kChk = document.getElementById('chkDriverKumar');
+    const sChk = document.getElementById('chkDriverSaravanan');
+    const tChk = document.getElementById('chkDriverThandaPadi');
+    if (kChk) kChk.checked = isKumar;
+    if (sChk) sChk.checked = isSaravanan;
+    if (tChk) tChk.checked = isThanda;
+}
+window.highlightPrimaryDriverCard = highlightPrimaryDriverCard;
+
+function onDriverCheckboxToggle(name, isChecked) {
+    const input = document.getElementById('dsDriverName');
+    if (!input) return;
+
+    if (isChecked) {
+        input.value = name;
+        highlightPrimaryDriverCard(name);
+        const amtInput = document.getElementById('dsAmount');
+        if (amtInput) {
+            amtInput.focus();
+            amtInput.select();
+        }
+        showToast(`Driver selected: ${name} (Checkbox checked)`, 'info');
+    } else {
+        if (input.value.trim().toLowerCase() === name.trim().toLowerCase()) {
+            input.value = '';
+            highlightPrimaryDriverCard('');
+        }
+    }
+}
+window.onDriverCheckboxToggle = onDriverCheckboxToggle;
+
+function onDriverCardClick(name, event) {
+    if (event && event.target && event.target.tagName === 'INPUT') return;
+    const input = document.getElementById('dsDriverName');
+    const currentName = input ? input.value.trim().toLowerCase() : '';
+    const clickedName = name.trim().toLowerCase();
+
+    if (currentName === clickedName) {
+        onDriverCheckboxToggle(name, false);
+    } else {
+        onDriverCheckboxToggle(name, true);
+    }
+}
+window.onDriverCardClick = onDriverCardClick;
+
+function selectPrimaryDriver(name) {
+    onDriverCheckboxToggle(name, true);
+}
+window.selectPrimaryDriver = selectPrimaryDriver;
+
+function onDsDriverNameTyped(val) {
+    highlightPrimaryDriverCard(val);
+}
+window.onDsDriverNameTyped = onDsDriverNameTyped;
+
+function setDsAmount(amt) {
+    const amtInput = document.getElementById('dsAmount');
+    if (amtInput) {
+        amtInput.value = parseFloat(amt).toFixed(2);
+        showToast(`Amount set to ${formatCurrency(amt)}`, 'info');
+    }
+}
+window.setDsAmount = setDsAmount;
+
+function setDsStatus(status) {
+    const hidden = document.getElementById('dsStatus');
+    if (hidden) hidden.value = status;
+    const btnPaid = document.getElementById('btnDsPaid');
+    const btnUnpaid = document.getElementById('btnDsUnpaid');
+    if (btnPaid && btnUnpaid) {
+        if (status === 'unpaid') {
+            btnPaid.classList.remove('active');
+            btnUnpaid.classList.add('active');
+        } else {
+            btnPaid.classList.add('active');
+            btnUnpaid.classList.remove('active');
+        }
+    }
+}
+window.setDsStatus = setDsStatus;
+
+function saveDriverSalary(event) {
+    event.preventDefault();
+    const id = document.getElementById('dsId').value;
+    const driverName = document.getElementById('dsDriverName').value.trim();
+    const amount = parseFloat(document.getElementById('dsAmount').value) || 0;
+    const date = document.getElementById('dsDate').value;
+    const vehicleId = document.getElementById('dsVehicle').value;
+    const status = document.getElementById('dsStatus').value || 'paid';
+    const notes = document.getElementById('dsNotes').value.trim();
+
+    if (!driverName) {
+        showToast('Please select or enter a driver name', 'error');
+        return;
+    }
+    if (amount <= 0) {
+        showToast('Please enter a valid salary amount', 'error');
+        return;
+    }
+
+    const salaries = getDriverSalaries();
+    let record;
+    if (id) {
+        const index = salaries.findIndex(s => s.id === id);
+        if (index !== -1) {
+            record = {
+                ...salaries[index],
+                driverName,
+                amount,
+                date,
+                vehicleId,
+                status,
+                notes,
+                updatedAt: new Date().toISOString()
+            };
+            salaries[index] = record;
+        }
+    } else {
+        record = {
+            id: 'ds_' + Date.now(),
+            driverName,
+            amount,
+            date,
+            vehicleId,
+            status,
+            notes,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        };
+        salaries.unshift(record);
+    }
+
+    saveDriverSalaries(salaries);
+
+    // Sync to Supabase
+    if (typeof isSupabaseConnected !== 'undefined' && isSupabaseConnected && supabaseClient) {
+        uploadDriverSalaryToSupabase(record);
+    }
+
+    const submitBtn = (event && event.target) ? event.target.querySelector('button[type="submit"]') : document.querySelector('#driverSalaryForm button[type="submit"]');
+    animateButtonSuccess(submitBtn, '✓ Saved Successfully!', () => {
+        closeDriverSalaryModal();
+        showToast(`Driver salary for ${driverName} (${formatCurrency(amount)}) saved as ${status.toUpperCase()}! ✅`, 'success');
+
+        // Refresh UI
+        renderReports();
+        renderDashboard();
+        if (typeof filterBills === 'function') filterBills();
+    });
+}
+window.saveDriverSalary = saveDriverSalary;
+
+function deleteCurrentDriverSalary() {
+    const id = document.getElementById('dsId').value;
+    if (!id) return;
+    if (confirm('Are you sure you want to delete this driver salary record?')) {
+        let salaries = getDriverSalaries();
+        salaries = salaries.filter(s => s.id !== id);
+        saveDriverSalaries(salaries);
+
+        if (typeof isSupabaseConnected !== 'undefined' && isSupabaseConnected && supabaseClient) {
+            deleteDriverSalaryFromSupabase(id);
+        }
+
+        closeDriverSalaryModal();
+        showToast('Driver salary record deleted', 'info');
+        renderReports();
+        renderDashboard();
+        if (typeof filterBills === 'function') filterBills();
+    }
+}
+window.deleteCurrentDriverSalary = deleteCurrentDriverSalary;
+
+function deleteDriverSalaryById(salaryId) {
+    if (!salaryId) return;
+    if (confirm('Are you sure you want to delete this driver salary record?')) {
+        let salaries = getDriverSalaries();
+        salaries = salaries.filter(s => s.id !== salaryId);
+        saveDriverSalaries(salaries);
+
+        if (typeof isSupabaseConnected !== 'undefined' && isSupabaseConnected && supabaseClient) {
+            deleteDriverSalaryFromSupabase(salaryId);
+        }
+
+        showToast('Driver salary record deleted', 'info');
+        renderReports();
+        renderDashboard();
+        if (typeof filterBills === 'function') filterBills();
+    }
+}
+window.deleteDriverSalaryById = deleteDriverSalaryById;
+
+function toggleStandaloneSalaryPaidStatus(salaryId, newStatus, event) {
+    if (event) event.stopPropagation();
+    const salaries = getDriverSalaries();
+    const record = salaries.find(s => s.id === salaryId);
+    if (!record) return;
+
+    record.status = newStatus;
+    record.updatedAt = new Date().toISOString();
+    saveDriverSalaries(salaries);
+
+    if (typeof isSupabaseConnected !== 'undefined' && isSupabaseConnected && supabaseClient) {
+        uploadDriverSalaryToSupabase(record);
+    }
+
+    showToast(`Salary for ${record.driverName} marked as ${newStatus.toUpperCase()}! ✅`, 'success');
+    renderReports();
+}
+window.toggleStandaloneSalaryPaidStatus = toggleStandaloneSalaryPaidStatus;
+
+// Backward compatibility helper stubs
+function populateDriverQuickChips(selectedDriver) {}
+window.populateDriverQuickChips = populateDriverQuickChips;
+function selectDriverName(name) { selectPrimaryDriver(name); }
+window.selectDriverName = selectDriverName;
+function onDriverNameInput(val) {}
+window.onDriverNameInput = onDriverNameInput;
+function setDriverSalaryAmount(amount) { setDsAmount(amount); }
+window.setDriverSalaryAmount = setDriverSalaryAmount;
+function setDriverSalaryStatus(status) { setDsStatus(status); }
+window.setDriverSalaryStatus = setDriverSalaryStatus;
+
+function updateLocalTripUI(isLocal) {
+    const custRow = document.getElementById('billCustomerDetailsRow');
+    const notice = document.getElementById('localTripCustomerNotice');
+    const custName = document.getElementById('customerName');
+    if (isLocal) {
+        if (custRow) custRow.style.display = 'none';
+        if (notice) notice.style.display = 'flex';
+        if (custName) {
+            custName.removeAttribute('required');
+            if (!custName.value || custName.value === 'Local Trip') custName.value = 'Local Trip';
+        }
+    } else {
+        if (custRow) custRow.style.display = 'flex';
+        if (notice) notice.style.display = 'none';
+        if (custName) {
+            custName.setAttribute('required', 'required');
+            if (custName.value === 'Local Trip') custName.value = '';
+        }
+    }
+}
+window.updateLocalTripUI = updateLocalTripUI;
+
+
 // ===== BILLING =====
 function openBillModal(billId) {
     const modal = document.getElementById('billModal');
@@ -960,6 +1397,7 @@ function openBillModal(billId) {
             <input type="number" placeholder="Amount" class="item-amount" min="0" step="0.01" required oninput="calculateBillTotal()">
             <button type="button" class="line-item-remove" onclick="removeLineItem(this)">✕</button>
         </div>`;
+
 
     if (billId) {
         // Edit mode
@@ -975,6 +1413,13 @@ function openBillModal(billId) {
         document.getElementById('fromLocation').value = bill.fromLocation;
         document.getElementById('toLocation').value = bill.toLocation;
         document.getElementById('goodsDesc').value = bill.goodsDesc || '';
+
+        // Local Income Trip option
+        const isLocal = Boolean(bill.isLocalIncome || bill.tripType === 'local');
+        const localCheck = document.getElementById('isLocalIncome');
+        if (localCheck) localCheck.checked = isLocal;
+        updateLocalTripUI(isLocal);
+
         document.getElementById('gstPercent').value = bill.gstPercent || 0;
         document.getElementById('amountPaid').value = bill.amountPaid || 0;
         document.getElementById('paymentStatus').value = bill.paymentStatus;
@@ -1002,6 +1447,10 @@ function openBillModal(billId) {
         document.getElementById('billId').value = '';
         document.getElementById('billNumber').value = getNextBillNumber();
         document.getElementById('billDate').value = new Date().toISOString().split('T')[0];
+        const localCheck = document.getElementById('isLocalIncome');
+        if (localCheck) localCheck.checked = false;
+        updateLocalTripUI(false);
+
         document.getElementById('billSubtotal').textContent = '₹0.00';
         document.getElementById('billGst').textContent = '₹0.00';
         document.getElementById('billGrandTotal').textContent = '₹0.00';
@@ -1013,6 +1462,62 @@ function openBillModal(billId) {
 
     modal.classList.add('show');
 }
+
+let driverSalaryManuallyEdited = false;
+function onDriverSalaryAmountInput() {
+    driverSalaryManuallyEdited = true;
+}
+window.onDriverSalaryAmountInput = onDriverSalaryAmountInput;
+
+function onLocalIncomeTripToggle() {
+    const isLocal = document.getElementById('isLocalIncome').checked;
+    updateLocalTripUI(isLocal);
+    if (isLocal) {
+        showToast('⚡ Local Trip enabled: Customer details hidden & omitted', 'info');
+    } else {
+        showToast('Standard Trip: Customer details restored', 'info');
+    }
+}
+window.onLocalIncomeTripToggle = onLocalIncomeTripToggle;
+
+function toggleDriverSalaryFields() {
+    const isChecked = document.getElementById('addToDriverSalary').checked;
+    const salaryDrawer = document.getElementById('driverSalaryDetails');
+    if (salaryDrawer) {
+        salaryDrawer.style.display = isChecked ? 'block' : 'none';
+    }
+    if (isChecked) {
+        const driverInput = document.getElementById('driverName');
+        if (driverInput && !driverInput.value) {
+            const vId = document.getElementById('billVehicle').value;
+            if (vId) {
+                const recent = getFuelLogs().filter(f => f.vehicleId === vId && f.driver).sort((a,b) => new Date(b.date) - new Date(a.date));
+                if (recent.length > 0) driverInput.value = recent[0].driver;
+            }
+        }
+        populateDriverQuickChips(driverInput ? driverInput.value : '');
+        const salaryInput = document.getElementById('driverSalaryAmount');
+        if (salaryInput && (!salaryInput.value || parseFloat(salaryInput.value) === 0)) {
+            syncDriverSalaryWithTotal();
+        }
+    }
+}
+window.toggleDriverSalaryFields = toggleDriverSalaryFields;
+
+function syncDriverSalaryWithTotal() {
+    const amounts = document.querySelectorAll('#lineItems .item-amount');
+    let subtotal = 0;
+    amounts.forEach(input => { subtotal += parseFloat(input.value) || 0; });
+    const gstPercent = parseFloat(document.getElementById('gstPercent').value) || 0;
+    const grandTotal = subtotal + (subtotal * gstPercent / 100);
+    const salaryInput = document.getElementById('driverSalaryAmount');
+    if (salaryInput) {
+        salaryInput.value = grandTotal > 0 ? grandTotal.toFixed(2) : '0.00';
+        driverSalaryManuallyEdited = false;
+        showToast('Salary set to bill total: ' + formatCurrency(grandTotal), 'info');
+    }
+}
+window.syncDriverSalaryWithTotal = syncDriverSalaryWithTotal;
 
 function deleteCurrentModalBill() {
     const id = document.getElementById('billId').value;
@@ -1065,6 +1570,13 @@ function calculateBillTotal() {
     document.getElementById('billGst').textContent = formatCurrency(gst);
     document.getElementById('billGrandTotal').textContent = formatCurrency(grandTotal);
 
+    // Keep Driver Salary synced if enabled and not manually overridden
+    const addSalary = document.getElementById('addToDriverSalary');
+    const salaryInput = document.getElementById('driverSalaryAmount');
+    if (addSalary && addSalary.checked && salaryInput && !driverSalaryManuallyEdited) {
+        salaryInput.value = grandTotal > 0 ? grandTotal.toFixed(2) : '';
+    }
+
     calculateBillBalance();
 }
 
@@ -1110,15 +1622,33 @@ function saveBill(event) {
     const grandTotal = subtotal + gst;
     const amountPaid = parseFloat(document.getElementById('amountPaid').value) || 0;
 
+    const isLocalIncome = document.getElementById('isLocalIncome') ? document.getElementById('isLocalIncome').checked : false;
+    const addToDriverSalary = document.getElementById('addToDriverSalary') ? document.getElementById('addToDriverSalary').checked : false;
+    const driverName = document.getElementById('driverName') ? document.getElementById('driverName').value.trim() : '';
+    const driverSalaryAmount = addToDriverSalary ? (parseFloat(document.getElementById('driverSalaryAmount')?.value) || 0) : 0;
+    const driverSalaryStatus = document.getElementById('driverSalaryStatus') ? document.getElementById('driverSalaryStatus').value : 'paid';
+
+    let customerName = document.getElementById('customerName').value.trim();
+    let customerPhone = document.getElementById('customerPhone').value.trim();
+    if (isLocalIncome) {
+        if (!customerName || customerName === 'Local Trip') customerName = 'Local Trip';
+        customerPhone = '';
+    }
+
     const billData = {
         billNumber: document.getElementById('billNumber').value,
         date: document.getElementById('billDate').value,
         vehicleId: document.getElementById('billVehicle').value,
-        customerName: document.getElementById('customerName').value,
-        customerPhone: document.getElementById('customerPhone').value,
+        customerName: customerName,
+        customerPhone: customerPhone,
         fromLocation: document.getElementById('fromLocation').value,
         toLocation: document.getElementById('toLocation').value,
         goodsDesc: document.getElementById('goodsDesc').value,
+        isLocalIncome: isLocalIncome,
+        addToDriverSalary: addToDriverSalary,
+        driverName: driverName,
+        driverSalaryAmount: driverSalaryAmount,
+        driverSalaryStatus: driverSalaryStatus,
         lineItems,
         subtotal,
         gstPercent,
@@ -1159,11 +1689,63 @@ function saveBill(event) {
         uploadBillToSupabase(billData);
         persistFleetToSupabase();
     }
-    closeBillModal();
-    renderBills();
-    renderDashboard();
-    renderVehicles();
-    renderReports();
+    const submitBtn = (event && event.target) ? event.target.querySelector('button[type="submit"]') : document.querySelector('#billForm button[type="submit"]');
+    animateButtonSuccess(submitBtn, '✓ Saved Successfully!', () => {
+        closeBillModal();
+        renderBills();
+        renderDashboard();
+        renderVehicles();
+        renderReports();
+    });
+}
+
+function renderBillCardHtml(bill) {
+    const v = getVehicleById(bill.vehicleId);
+    const isLocal = Boolean(bill.isLocalIncome || bill.tripType === 'local');
+    const hasSalary = Boolean(bill.addToDriverSalary);
+    const salaryAmt = parseFloat(bill.driverSalaryAmount) || parseFloat(bill.grandTotal) || 0;
+    const salaryStatus = bill.driverSalaryStatus || 'paid';
+
+    return `
+    <div class="bill-item" onclick="viewBill('${bill.id}')">
+        <div class="bill-item-top">
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                <span class="bill-item-number">${bill.billNumber}</span>
+                ${isLocal ? `<span class="badge-tag-local" title="Local Income Trip">⚡ Local Trip</span>` : ''}
+                ${hasSalary ? `<span class="badge-tag-salary" title="Driver Salary Allocated">👤 Salary: ${formatCurrency(salaryAmt)}${bill.driverName ? ' (' + bill.driverName + ')' : ''} <span class="${salaryStatus === 'unpaid' ? 'badge-salary-unpaid' : 'badge-salary-paid'}" style="margin-left:2px;font-size:9px;padding:1px 5px;">${salaryStatus.toUpperCase()}</span></span>` : ''}
+            </div>
+            <span class="bill-item-status ${bill.paymentStatus}">${bill.paymentStatus}</span>
+        </div>
+        <div class="bill-item-middle">
+            <span class="bill-item-customer">${isLocal ? '<span style="color:var(--orange,#EF5226);font-weight:700;">⚡ Local Income Trip</span>' : bill.customerName}</span>
+            <span class="bill-item-route">${bill.fromLocation} → ${bill.toLocation}</span>
+        </div>
+        <div class="bill-item-bottom">
+            <span class="bill-item-meta">
+                <span>${v ? getVehicleDisplay(v) : '-'}</span>
+                <span>${formatDate(bill.date)}</span>
+            </span>
+            <span class="bill-item-amount">${formatCurrency(bill.grandTotal)}</span>
+        </div>
+        <div class="bill-item-actions" onclick="event.stopPropagation()">
+            <button class="bill-action-btn" onclick="openBillModal('${bill.id}')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                Edit
+            </button>
+            <button class="bill-action-btn" onclick="printBill('${bill.id}')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                Print
+            </button>
+            <button class="bill-action-btn" onclick="shareBillWhatsApp('${bill.id}')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+                Share
+            </button>
+            <button class="bill-action-btn delete" onclick="event.stopPropagation(); deleteBill('${bill.id}');">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                Delete
+            </button>
+        </div>
+    </div>`;
 }
 
 function renderBills() {
@@ -1182,105 +1764,127 @@ function renderBills() {
 
     // Sort by date (newest first)
     const sortedBills = [...bills].sort((a, b) => new Date(b.date) - new Date(a.date));
+    container.innerHTML = sortedBills.map(renderBillCardHtml).join('');
+}
 
-    container.innerHTML = sortedBills.map(bill => {
-        const v = getVehicleById(bill.vehicleId);
-        return `
-        <div class="bill-item" onclick="viewBill('${bill.id}')">
-            <div class="bill-item-top">
-                <span class="bill-item-number">${bill.billNumber}</span>
-                <span class="bill-item-status ${bill.paymentStatus}">${bill.paymentStatus}</span>
+function renderDriverSalaryCardHtml(s) {
+    const v = getVehicleById(s.vehicleId);
+    const isPaid = (s.status || 'paid') !== 'unpaid';
+
+    return `
+    <div class="bill-item salary-entry-card" onclick="openDriverSalaryModal('${s.id}')" style="border-left:3px solid #10b981;">
+        <div class="bill-item-top">
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                <span class="badge-tag-salary" style="font-size:11px;padding:3px 9px;">👤 Driver Salary</span>
+                <span class="${isPaid ? 'badge-salary-paid' : 'badge-salary-unpaid'}">${isPaid ? '✓ PAID' : '⏳ UNPAID'}</span>
             </div>
-            <div class="bill-item-middle">
-                <span class="bill-item-customer">${bill.customerName}</span>
-                <span class="bill-item-route">${bill.fromLocation} → ${bill.toLocation}</span>
-            </div>
-            <div class="bill-item-bottom">
-                <span class="bill-item-meta">
-                    <span>${v ? getVehicleDisplay(v) : '-'}</span>
-                    <span>${formatDate(bill.date)}</span>
-                </span>
-                <span class="bill-item-amount">${formatCurrency(bill.grandTotal)}</span>
-            </div>
-            <div class="bill-item-actions" onclick="event.stopPropagation()">
-                <button class="bill-action-btn" onclick="openBillModal('${bill.id}')">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                    Edit
-                </button>
-                <button class="bill-action-btn" onclick="printBill('${bill.id}')">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-                    Print
-                </button>
-                <button class="bill-action-btn" onclick="shareBillWhatsApp('${bill.id}')">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
-                    Share
-                </button>
-                <button class="bill-action-btn delete" onclick="event.stopPropagation(); deleteBill('${bill.id}');">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                    Delete
-                </button>
-            </div>
-        </div>`;
-    }).join('');
+            <span class="bill-item-amount" style="color:#0ea5e9;">${formatCurrency(s.amount)}</span>
+        </div>
+        <div class="bill-item-middle">
+            <span class="bill-item-customer" style="color:#000000;font-weight:700;">👤 ${s.driverName}</span>
+            <span class="bill-item-route">${s.notes || 'Driver salary payout'}</span>
+        </div>
+        <div class="bill-item-bottom">
+            <span class="bill-item-meta">
+                <span>${v ? getVehicleDisplay(v) : 'General Fleet'}</span>
+                <span>${formatDate(s.date)}</span>
+            </span>
+        </div>
+        <div class="bill-item-actions" onclick="event.stopPropagation()">
+            <button class="bill-action-btn" onclick="openDriverSalaryModal('${s.id}')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                Edit
+            </button>
+            <button class="bill-action-btn delete" onclick="event.stopPropagation(); deleteDriverSalaryById('${s.id}');">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                Delete
+            </button>
+        </div>
+    </div>`;
 }
 
 function filterBills() {
-    const search = document.getElementById('billSearch').value.toLowerCase();
+    const search = (document.getElementById('billSearch').value || '').toLowerCase();
     const vehicleFilter = document.getElementById('billVehicleFilter').value;
+    const typeFilter = document.getElementById('billTypeFilter') ? document.getElementById('billTypeFilter').value : 'all';
     const statusFilter = document.getElementById('billStatusFilter').value;
 
     let bills = getBills();
+    let standaloneSalaries = [];
+
+    // Include standalone driver salaries when salary filter is active or showing all
+    if (typeFilter === 'salary' || typeFilter === 'salary_unpaid' || typeFilter === 'salary_paid' || typeFilter === 'all') {
+        standaloneSalaries = getDriverSalaries();
+    }
 
     if (search) {
         bills = bills.filter(b =>
-            b.billNumber.toLowerCase().includes(search) ||
-            b.customerName.toLowerCase().includes(search) ||
-            b.fromLocation.toLowerCase().includes(search) ||
-            b.toLocation.toLowerCase().includes(search)
+            (b.billNumber && b.billNumber.toLowerCase().includes(search)) ||
+            (b.customerName && b.customerName.toLowerCase().includes(search)) ||
+            (b.fromLocation && b.fromLocation.toLowerCase().includes(search)) ||
+            (b.toLocation && b.toLocation.toLowerCase().includes(search)) ||
+            (b.driverName && b.driverName.toLowerCase().includes(search))
+        );
+        standaloneSalaries = standaloneSalaries.filter(s =>
+            (s.driverName && s.driverName.toLowerCase().includes(search)) ||
+            (s.notes && s.notes.toLowerCase().includes(search))
         );
     }
 
     if (vehicleFilter) {
         bills = bills.filter(b => b.vehicleId === vehicleFilter);
+        standaloneSalaries = standaloneSalaries.filter(s => s.vehicleId === vehicleFilter);
+    }
+
+    if (typeFilter === 'local') {
+        bills = bills.filter(b => b.isLocalIncome === true || b.tripType === 'local');
+        standaloneSalaries = []; // No standalone salaries for local filter
+    } else if (typeFilter === 'standard') {
+        bills = bills.filter(b => !b.isLocalIncome && b.tripType !== 'local');
+        standaloneSalaries = []; // No standalone salaries for standard filter
+    } else if (typeFilter === 'salary') {
+        bills = bills.filter(b => b.addToDriverSalary === true);
+        // Keep all standalone salaries
+    } else if (typeFilter === 'salary_unpaid') {
+        bills = bills.filter(b => b.addToDriverSalary === true && b.driverSalaryStatus === 'unpaid');
+        standaloneSalaries = standaloneSalaries.filter(s => s.status === 'unpaid');
+    } else if (typeFilter === 'salary_paid') {
+        bills = bills.filter(b => b.addToDriverSalary === true && b.driverSalaryStatus !== 'unpaid');
+        standaloneSalaries = standaloneSalaries.filter(s => (s.status || 'paid') !== 'unpaid');
+    } else {
+        // typeFilter === 'all' — don't include standalone salaries in the "all" view to avoid cluttering
+        standaloneSalaries = [];
     }
 
     if (statusFilter) {
         bills = bills.filter(b => b.paymentStatus === statusFilter);
+        // For standalone salaries, map paid/unpaid to status filter
+        if (statusFilter === 'paid') {
+            standaloneSalaries = standaloneSalaries.filter(s => (s.status || 'paid') !== 'unpaid');
+        } else if (statusFilter === 'unpaid') {
+            standaloneSalaries = standaloneSalaries.filter(s => s.status === 'unpaid');
+        } else {
+            standaloneSalaries = [];
+        }
     }
 
     const container = document.getElementById('billsList');
-    if (bills.length === 0) {
+
+    if (bills.length === 0 && standaloneSalaries.length === 0) {
         container.innerHTML = '<div class="empty-state"><p>No matching bills found</p></div>';
         return;
     }
 
-    const sortedBills = [...bills].sort((a, b) => new Date(b.date) - new Date(a.date));
-    container.innerHTML = sortedBills.map(bill => {
-        const v = getVehicleById(bill.vehicleId);
-        return `
-        <div class="bill-item" onclick="viewBill('${bill.id}')">
-            <div class="bill-item-top">
-                <span class="bill-item-number">${bill.billNumber}</span>
-                <span class="bill-item-status ${bill.paymentStatus}">${bill.paymentStatus}</span>
-            </div>
-            <div class="bill-item-middle">
-                <span class="bill-item-customer">${bill.customerName}</span>
-                <span class="bill-item-route">${bill.fromLocation} → ${bill.toLocation}</span>
-            </div>
-            <div class="bill-item-bottom">
-                <span class="bill-item-meta">
-                    <span>${v ? getVehicleDisplay(v) : '-'}</span>
-                    <span>${formatDate(bill.date)}</span>
-                </span>
-                <span class="bill-item-amount">${formatCurrency(bill.grandTotal)}</span>
-            </div>
-            <div class="bill-item-actions" onclick="event.stopPropagation()">
-                <button class="bill-action-btn" onclick="openBillModal('${bill.id}')">Edit</button>
-                <button class="bill-action-btn" onclick="printBill('${bill.id}')">Print</button>
-                <button class="bill-action-btn" onclick="shareBillWhatsApp('${bill.id}')">Share</button>
-                <button class="bill-action-btn delete" onclick="event.stopPropagation(); deleteBill('${bill.id}');">Delete</button>
-            </div>
-        </div>`;
+    // Create combined sorted items
+    const billItems = bills.map(b => ({ type: 'bill', date: b.date, data: b }));
+    const salaryItems = standaloneSalaries.map(s => ({ type: 'salary', date: s.date, data: s }));
+    const combined = [...billItems, ...salaryItems].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    container.innerHTML = combined.map(item => {
+        if (item.type === 'salary') {
+            return renderDriverSalaryCardHtml(item.data);
+        }
+        return renderBillCardHtml(item.data);
     }).join('');
 }
 
@@ -1310,12 +1914,17 @@ function viewBill(billId) {
         </div>
 
         <div class="bill-view-section">
-            <div class="bill-view-row"><span class="label">Customer</span><span class="value">${bill.customerName}</span></div>
-            ${bill.customerPhone ? `<div class="bill-view-row"><span class="label">Phone</span><span class="value">${bill.customerPhone}</span></div>` : ''}
+            ${(bill.isLocalIncome || bill.tripType === 'local') ? `
+                <div class="bill-view-row"><span class="label">Trip Classification</span><span class="value" style="color:var(--orange);font-weight:700;">⚡ Local Income Trip</span></div>
+            ` : `
+                <div class="bill-view-row"><span class="label">Customer</span><span class="value">${bill.customerName}</span></div>
+                ${bill.customerPhone ? `<div class="bill-view-row"><span class="label">Phone</span><span class="value">${bill.customerPhone}</span></div>` : ''}
+            `}
             <div class="bill-view-row"><span class="label">From</span><span class="value">${bill.fromLocation}</span></div>
             <div class="bill-view-row"><span class="label">To</span><span class="value">${bill.toLocation}</span></div>
             <div class="bill-view-row"><span class="label">Vehicle</span><span class="value">${v ? getVehicleDisplay(v) : '-'}</span></div>
             ${bill.goodsDesc ? `<div class="bill-view-row"><span class="label">Goods</span><span class="value">${bill.goodsDesc}</span></div>` : ''}
+            ${bill.addToDriverSalary ? `<div class="bill-view-row"><span class="label">Driver Salary</span><span class="value" style="color:#0ea5e9;font-weight:700;">${formatCurrency(bill.driverSalaryAmount || bill.grandTotal)} ${bill.driverName ? `(Driver: ${bill.driverName})` : ''} <span class="${(bill.driverSalaryStatus || 'paid') === 'unpaid' ? 'badge-salary-unpaid' : 'badge-salary-paid'}" style="margin-left:4px;font-size:10px;">${(bill.driverSalaryStatus || 'paid').toUpperCase()}</span></span></div>` : ''}
         </div>
 
         <div class="bill-view-items">
@@ -1420,12 +2029,17 @@ function printBill(billId) {
             <span style="font-weight:600;">${formatDate(bill.date)}</span>
         </div>
 
-        <div class="info-row"><span class="label">Customer</span><span class="value">${bill.customerName}</span></div>
-        ${bill.customerPhone ? `<div class="info-row"><span class="label">Phone</span><span class="value">${bill.customerPhone}</span></div>` : ''}
+        ${(bill.isLocalIncome || bill.tripType === 'local') ? `
+            <div class="info-row"><span class="label">Trip Classification</span><span class="value" style="color:#EF5226;font-weight:700;">⚡ Local Income Trip</span></div>
+        ` : `
+            <div class="info-row"><span class="label">Customer</span><span class="value">${bill.customerName}</span></div>
+            ${bill.customerPhone ? `<div class="info-row"><span class="label">Phone</span><span class="value">${bill.customerPhone}</span></div>` : ''}
+        `}
         <div class="info-row"><span class="label">From</span><span class="value">${bill.fromLocation}</span></div>
         <div class="info-row"><span class="label">To</span><span class="value">${bill.toLocation}</span></div>
         <div class="info-row"><span class="label">Vehicle</span><span class="value">${v ? getVehicleDisplay(v) : '-'}</span></div>
         ${bill.goodsDesc ? `<div class="info-row"><span class="label">Goods</span><span class="value">${bill.goodsDesc}</span></div>` : ''}
+        ${bill.addToDriverSalary ? `<div class="info-row"><span class="label">Driver Salary</span><span class="value" style="color:#0284c7;font-weight:700;">${formatCurrency(bill.driverSalaryAmount || bill.grandTotal)} ${bill.driverName ? `(${bill.driverName})` : ''} [${(bill.driverSalaryStatus || 'paid').toUpperCase()}]</span></div>` : ''}
 
         <table>
             <thead><tr><th>#</th><th>Description</th><th style="text-align:right;">Amount</th></tr></thead>
@@ -1464,10 +2078,15 @@ function shareBillWhatsApp(billId) {
     text += `━━━━━━━━━━━━━━━━━━\n`;
     text += `*Bill No:* ${bill.billNumber}\n`;
     text += `*Date:* ${formatDate(bill.date)}\n`;
-    text += `*Customer:* ${bill.customerName}\n`;
+    if (!bill.isLocalIncome && bill.tripType !== 'local') {
+        text += `*Customer:* ${bill.customerName}\n`;
+    } else {
+        text += `*Trip Type:* ⚡ Local Income Trip\n`;
+    }
     text += `*From:* ${bill.fromLocation}\n`;
     text += `*To:* ${bill.toLocation}\n`;
     text += `*Vehicle:* ${v ? getVehicleDisplay(v) : '-'}\n`;
+    if (bill.addToDriverSalary) text += `*Driver Salary:* ${formatCurrency(bill.driverSalaryAmount || bill.grandTotal)} (${bill.driverName || 'Assigned Driver'}) [${(bill.driverSalaryStatus || 'paid').toUpperCase()}]\n`;
     text += `━━━━━━━━━━━━━━━━━━\n`;
     (bill.lineItems || []).forEach(item => {
         text += `• ${item.desc}: ${formatCurrency(item.amount)}\n`;
@@ -1938,11 +2557,14 @@ function saveFuel(event) {
         uploadFuelToSupabase(fuelData);
         persistFleetToSupabase();
     }
-    closeFuelModal();
-    renderFuelLogs();
-    renderDashboard();
-    renderVehicles();
-    renderReports();
+    const submitBtn = (event && event.target) ? event.target.querySelector('button[type="submit"]') : document.querySelector('#fuelForm button[type="submit"]');
+    animateButtonSuccess(submitBtn, '✓ Saved Successfully!', () => {
+        closeFuelModal();
+        renderFuelLogs();
+        renderDashboard();
+        renderVehicles();
+        renderReports();
+    });
 }
 
 function renderFuelLogs() {
@@ -2272,13 +2894,17 @@ function switchReportTxnTab(tab) {
     reportState.txnTab = tab;
     const pillBills = document.getElementById('pillShowBills');
     const pillFuel = document.getElementById('pillShowFuel');
+    const pillSalary = document.getElementById('pillShowSalary');
     const billsSec = document.getElementById('reportBillsSection');
     const fuelSec = document.getElementById('reportFuelSection');
+    const salarySec = document.getElementById('reportSalarySection');
 
     if (pillBills) pillBills.classList.toggle('active', tab === 'bills');
     if (pillFuel) pillFuel.classList.toggle('active', tab === 'fuel');
+    if (pillSalary) pillSalary.classList.toggle('active', tab === 'salary');
     if (billsSec) billsSec.style.display = tab === 'bills' ? 'flex' : 'none';
     if (fuelSec) fuelSec.style.display = tab === 'fuel' ? 'flex' : 'none';
+    if (salarySec) salarySec.style.display = tab === 'salary' ? 'flex' : 'none';
 }
 
 function populateReportVehicleFilter() {
@@ -2320,9 +2946,21 @@ function renderReports() {
     }
 
     // Filter by vehicle
+    let periodSalaries = getDriverSalaries();
+    if (reportState.period !== 'all_time') {
+        const start = new Date(dateRange.start);
+        const end = new Date(dateRange.end);
+        end.setHours(23, 59, 59, 999);
+        periodSalaries = periodSalaries.filter(s => {
+            const d = new Date(s.date);
+            return d >= start && d <= end;
+        });
+    }
+
     if (reportState.vehicleId !== 'all') {
         periodBills = periodBills.filter(b => b.vehicleId === reportState.vehicleId);
         periodFuel = periodFuel.filter(f => f.vehicleId === reportState.vehicleId);
+        periodSalaries = periodSalaries.filter(s => !s.vehicleId || s.vehicleId === reportState.vehicleId);
     }
 
     // Update Counts & Tags
@@ -2339,23 +2977,41 @@ function renderReports() {
         pnlTag.textContent = periodNames[reportState.period] || 'Selected Period';
     }
 
-    renderPeriodKPIs(periodBills, periodFuel, vehicles);
+    renderPeriodKPIs(periodBills, periodFuel, vehicles, periodSalaries);
     renderRevenueChart(periodBills, dateRange, reportState.period);
     renderFuelChart(periodFuel, dateRange, reportState.period);
     renderVehicleChart(vehicles, periodBills, periodFuel);
-    renderPnLTable(vehicles, periodBills, periodFuel);
-    renderPeriodTxnList(periodBills, periodFuel);
+    renderPnLTable(vehicles, periodBills, periodFuel, periodSalaries);
+    renderPeriodTxnList(periodBills, periodFuel, periodSalaries);
 }
 
 // ===== EXECUTIVE KPIS =====
-function renderPeriodKPIs(bills, fuel, vehicles) {
+function renderPeriodKPIs(bills, fuel, vehicles, salaries) {
     const container = document.getElementById('reportKpiRow');
     if (!container) return;
 
-    const totalRevenue = bills.reduce((s, b) => s + (parseFloat(b.grandTotal) || 0), 0);
+    if (!salaries) salaries = getDriverSalaries();
+
+    const stdBills = bills.filter(b => !b.isLocalIncome && b.tripType !== 'local');
+    const localBills = bills.filter(b => b.isLocalIncome === true || b.tripType === 'local');
+    const stdRevenue = stdBills.reduce((s, b) => s + (parseFloat(b.grandTotal) || 0), 0);
+    const localRevenue = localBills.reduce((s, b) => s + (parseFloat(b.grandTotal) || 0), 0);
+    const totalRevenue = stdRevenue + localRevenue;
+
     const totalFuelCost = fuel.reduce((s, f) => s + (parseFloat(f.totalAmount) || 0), 0);
     const totalLitres = fuel.reduce((s, f) => s + (parseFloat(f.litres) || 0), 0);
-    const netProfit = totalRevenue - totalFuelCost;
+
+    const salaryBills = bills.filter(b => b.addToDriverSalary === true);
+    const legacySalaryTotal = salaryBills.reduce((s, b) => {
+        const amt = parseFloat(b.driverSalaryAmount);
+        return s + (!isNaN(amt) && amt > 0 ? amt : (parseFloat(b.grandTotal) || 0));
+    }, 0);
+    const directSalaryTotal = (salaries || []).reduce((s, item) => s + (parseFloat(item.amount) || 0), 0);
+    const totalDriverSalary = legacySalaryTotal + directSalaryTotal;
+    const totalSalaryCount = salaryBills.length + (salaries || []).length;
+
+    const totalOperatingExpenses = totalFuelCost + totalDriverSalary;
+    const netProfit = totalRevenue - totalOperatingExpenses;
     const margin = totalRevenue > 0 ? ((netProfit / totalRevenue) * 100).toFixed(1) : '0.0';
     const totalPending = bills.reduce((s, b) => s + (parseFloat(b.balance) || 0), 0);
 
@@ -2378,7 +3034,18 @@ function renderPeriodKPIs(bills, fuel, vehicles) {
             <div class="report-kpi-content">
                 <div class="report-kpi-title">Gross Revenue</div>
                 <div class="report-kpi-val">${formatCurrency(totalRevenue)}</div>
-                <div class="report-kpi-sub">${bills.length} Bill${bills.length === 1 ? '' : 's'} issued</div>
+                <div class="report-kpi-sub">${stdBills.length} Std (${formatCurrency(stdRevenue)}) • ${localBills.length} Local</div>
+            </div>
+        </div>
+
+        <div class="report-kpi-card">
+            <div class="report-kpi-icon" style="background:rgba(245, 158, 11, 0.12);color:#f59e0b;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            </div>
+            <div class="report-kpi-content">
+                <div class="report-kpi-title">Local Trip Income</div>
+                <div class="report-kpi-val" style="color:#f59e0b;">${formatCurrency(localRevenue)}</div>
+                <div class="report-kpi-sub">${localBills.length} Local dispatch${localBills.length === 1 ? '' : 'es'}</div>
             </div>
         </div>
 
@@ -2394,24 +3061,24 @@ function renderPeriodKPIs(bills, fuel, vehicles) {
         </div>
 
         <div class="report-kpi-card">
-            <div class="report-kpi-icon ${netProfit >= 0 ? 'green' : 'red'}">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+            <div class="report-kpi-icon teal">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
             </div>
             <div class="report-kpi-content">
-                <div class="report-kpi-title">Net Profit</div>
-                <div class="report-kpi-val" style="color:${netProfit >= 0 ? 'var(--green)' : 'var(--red)'};">${formatCurrency(netProfit)}</div>
-                <span class="report-kpi-badge ${netProfit >= 0 ? 'profit' : 'loss'}">${netProfit >= 0 ? '+' : ''}${margin}% Margin</span>
+                <div class="report-kpi-title">Driver Salary</div>
+                <div class="report-kpi-val" style="color:#0ea5e9;">${formatCurrency(totalDriverSalary)}</div>
+                <div class="report-kpi-sub">${totalSalaryCount} Payout${totalSalaryCount === 1 ? '' : 's'} (Expense)</div>
             </div>
         </div>
 
         <div class="report-kpi-card">
-            <div class="report-kpi-icon blue">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <div class="report-kpi-icon ${netProfit >= 0 ? 'green' : 'red'}">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
             </div>
             <div class="report-kpi-content">
-                <div class="report-kpi-title">Fleet Efficiency</div>
-                <div class="report-kpi-val">${avgMileage}</div>
-                <div class="report-kpi-sub">${totalKm > 0 ? totalKm.toFixed(0) + ' km driven' : 'Distance tracking'}</div>
+                <div class="report-kpi-title">${netProfit >= 0 ? 'Net Profit' : 'Net Loss'}</div>
+                <div class="report-kpi-val" style="color:${netProfit >= 0 ? 'var(--green)' : 'var(--red)'};">${formatCurrency(netProfit)}</div>
+                <span class="report-kpi-badge ${netProfit >= 0 ? 'profit' : 'loss'}">${netProfit >= 0 ? '+' : ''}${margin}% Margin</span>
             </div>
         </div>
 
@@ -2422,7 +3089,7 @@ function renderPeriodKPIs(bills, fuel, vehicles) {
             <div class="report-kpi-content">
                 <div class="report-kpi-title">Pending Dues</div>
                 <div class="report-kpi-val" style="color:${totalPending > 0 ? 'var(--orange)' : 'var(--green)'};">${formatCurrency(totalPending)}</div>
-                <div class="report-kpi-sub">Uncollected balance</div>
+                <div class="report-kpi-sub">Uncollected customer balance</div>
             </div>
         </div>
     `;
@@ -2651,43 +3318,92 @@ function renderVehicleChart(vehicles, bills, fuel) {
 }
 
 // ===== PERIOD P&L TABLE =====
-function renderPnLTable(vehicles, bills, fuel) {
+function renderPnLTable(vehicles, bills, fuel, salaries) {
     const container = document.getElementById('pnlTable');
     if (!container) return;
 
+    if (!salaries) salaries = getDriverSalaries();
+
     let totalBillsCount = 0;
+    let totalStdCount = 0;
+    let totalLocalCount = 0;
     let totalRevenue = 0;
+    let totalLocalRevenue = 0;
     let totalLitres = 0;
     let totalFuel = 0;
+    let totalDriverSalary = 0;
 
     let tableRows = vehicles.map(v => {
         const vBills = bills.filter(b => b.vehicleId === v.id);
         const vFuel = fuel.filter(f => f.vehicleId === v.id);
+        const vSalaries = (salaries || []).filter(s => s.vehicleId === v.id);
+
+        const vStd = vBills.filter(b => !b.isLocalIncome && b.tripType !== 'local');
+        const vLocal = vBills.filter(b => b.isLocalIncome === true || b.tripType === 'local');
 
         const revenue = vBills.reduce((s, b) => s + (parseFloat(b.grandTotal) || 0), 0);
+        const localRev = vLocal.reduce((s, b) => s + (parseFloat(b.grandTotal) || 0), 0);
         const fuelCost = vFuel.reduce((s, f) => s + (parseFloat(f.totalAmount) || 0), 0);
         const litres = vFuel.reduce((s, f) => s + (parseFloat(f.litres) || 0), 0);
-        const profit = revenue - fuelCost;
+
+        const legacySalary = vBills.reduce((s, b) => {
+            if (b.addToDriverSalary) {
+                const amt = parseFloat(b.driverSalaryAmount);
+                return s + (!isNaN(amt) && amt > 0 ? amt : (parseFloat(b.grandTotal) || 0));
+            }
+            return s;
+        }, 0);
+        const directSalary = vSalaries.reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0);
+        const driverSalary = legacySalary + directSalary;
+
+        const totalExpenses = fuelCost + driverSalary;
+        const profit = revenue - totalExpenses;
         const margin = revenue > 0 ? ((profit / revenue) * 100).toFixed(1) + '%' : '0.0%';
 
         totalBillsCount += vBills.length;
+        totalStdCount += vStd.length;
+        totalLocalCount += vLocal.length;
         totalRevenue += revenue;
+        totalLocalRevenue += localRev;
         totalLitres += litres;
         totalFuel += fuelCost;
+        totalDriverSalary += driverSalary;
 
         return `
             <tr>
                 <td><strong>${v.name}</strong> <span style="font-size:11px;color:var(--text-muted);font-family:monospace;">(${v.number})</span></td>
-                <td style="text-align:center;">${vBills.length}</td>
-                <td style="color:var(--green);font-weight:700;">${formatCurrency(revenue)}</td>
-                <td style="color:var(--text-secondary);">${litres.toFixed(1)} L</td>
-                <td style="color:var(--red);font-weight:600;">${formatCurrency(fuelCost)}</td>
+                <td style="text-align:center;">
+                    ${vBills.length}
+                    <div style="font-size:10px;color:var(--text-muted);margin-top:2px;">
+                        <span>${vStd.length} std</span> ${vLocal.length > 0 ? `• <span style="color:var(--orange);font-weight:700;">${vLocal.length} local</span>` : ''}
+                    </div>
+                </td>
+                <td>
+                    <div style="color:var(--green);font-weight:700;">${formatCurrency(revenue)}</div>
+                    ${localRev > 0 ? `<div style="font-size:10px;color:var(--orange);">Local: ${formatCurrency(localRev)}</div>` : ''}
+                </td>
+                <td style="color:var(--red);font-weight:600;">
+                    ${formatCurrency(fuelCost)}
+                    <div style="font-size:10px;color:var(--text-muted);">${litres.toFixed(1)} L</div>
+                </td>
+                <td style="color:#0ea5e9;font-weight:600;">
+                    ${driverSalary > 0 ? formatCurrency(driverSalary) : '—'}
+                </td>
+                <td style="color:var(--text-secondary);font-weight:600;">
+                    ${formatCurrency(totalExpenses)}
+                </td>
                 <td class="${profit >= 0 ? 'profit' : 'loss'}">${formatCurrency(profit)}</td>
                 <td style="font-weight:700;color:${profit >= 0 ? 'var(--green)' : 'var(--red)'};">${profit >= 0 ? '+' : ''}${margin}</td>
             </tr>`;
     }).join('');
 
-    const totalProfit = totalRevenue - totalFuel;
+    // General / unassigned fleet salaries
+    const generalSalaries = (salaries || []).filter(s => !s.vehicleId || !vehicles.some(v => v.id === s.vehicleId));
+    const generalSalaryTotal = generalSalaries.reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0);
+    totalDriverSalary += generalSalaryTotal;
+
+    const totalFleetExpenses = totalFuel + totalDriverSalary;
+    const totalProfit = totalRevenue - totalFleetExpenses;
     const totalMargin = totalRevenue > 0 ? ((totalProfit / totalRevenue) * 100).toFixed(1) + '%' : '0.0%';
 
     container.innerHTML = `
@@ -2695,11 +3411,12 @@ function renderPnLTable(vehicles, bills, fuel) {
         <thead>
             <tr>
                 <th>Vehicle</th>
-                <th style="text-align:center;">Trips</th>
-                <th>Revenue</th>
-                <th>Fuel (L)</th>
+                <th style="text-align:center;">Trips (Std / Local)</th>
+                <th>Gross Revenue</th>
                 <th>Fuel Cost</th>
-                <th>Net Profit</th>
+                <th>Driver Salary</th>
+                <th>Total Expenses</th>
+                <th>Net Profit / Loss</th>
                 <th>Margin %</th>
             </tr>
         </thead>
@@ -2707,10 +3424,22 @@ function renderPnLTable(vehicles, bills, fuel) {
             ${tableRows}
             <tr style="font-weight:800;border-top:2px solid var(--border);background:var(--bg-surface);">
                 <td>TOTAL FLEET</td>
-                <td style="text-align:center;">${totalBillsCount}</td>
-                <td style="color:var(--green);">${formatCurrency(totalRevenue)}</td>
-                <td>${totalLitres.toFixed(1)} L</td>
-                <td style="color:var(--red);">${formatCurrency(totalFuel)}</td>
+                <td style="text-align:center;">
+                    ${totalBillsCount}
+                    <div style="font-size:10px;color:var(--text-muted);margin-top:2px;">
+                        ${totalStdCount} std • <span style="color:var(--orange);">${totalLocalCount} local</span>
+                    </div>
+                </td>
+                <td>
+                    <div style="color:var(--green);">${formatCurrency(totalRevenue)}</div>
+                    ${totalLocalRevenue > 0 ? `<div style="font-size:10px;color:var(--orange);">Local: ${formatCurrency(totalLocalRevenue)}</div>` : ''}
+                </td>
+                <td style="color:var(--red);">
+                    ${formatCurrency(totalFuel)}
+                    <div style="font-size:10px;color:var(--text-muted);">${totalLitres.toFixed(1)} L</div>
+                </td>
+                <td style="color:#0ea5e9;">${formatCurrency(totalDriverSalary)}</td>
+                <td style="color:var(--text-secondary);">${formatCurrency(totalFleetExpenses)}</td>
                 <td class="${totalProfit >= 0 ? 'profit' : 'loss'}">${formatCurrency(totalProfit)}</td>
                 <td style="color:${totalProfit >= 0 ? 'var(--green)' : 'var(--red)'};">${totalProfit >= 0 ? '+' : ''}${totalMargin}</td>
             </tr>
@@ -2719,14 +3448,47 @@ function renderPnLTable(vehicles, bills, fuel) {
 }
 
 // ===== PERIOD TRANSACTION DRILLDOWN LIST =====
-function renderPeriodTxnList(bills, fuel) {
+function renderPeriodTxnList(bills, fuel, salaries) {
+    if (!bills) bills = getBills();
+    if (!fuel) fuel = getFuelLogs();
+    if (!salaries) salaries = getDriverSalaries();
+
     const billsSec = document.getElementById('reportBillsSection');
     const fuelSec = document.getElementById('reportFuelSection');
+    const salarySec = document.getElementById('reportSalarySection');
     const bCount = document.getElementById('periodBillsCount');
     const fCount = document.getElementById('periodFuelCount');
+    const sCount = document.getElementById('periodSalaryCount');
+
+    // Build unified salary list: direct driver salary payouts + any legacy bill-linked salaries
+    const legacySalaryBills = bills.filter(b => b.addToDriverSalary === true);
+    const combinedSalaries = [
+        ...salaries.map(s => ({
+            id: s.id,
+            isDirect: true,
+            date: s.date,
+            driverName: s.driverName || 'Kumar',
+            amount: parseFloat(s.amount) || 0,
+            status: s.status || 'paid',
+            vehicleId: s.vehicleId,
+            notes: s.notes || ''
+        })),
+        ...legacySalaryBills.map(b => ({
+            id: b.id,
+            isDirect: false,
+            billNumber: b.billNumber,
+            date: b.date,
+            driverName: b.driverName || 'Assigned Driver',
+            amount: parseFloat(b.driverSalaryAmount) || parseFloat(b.grandTotal) || 0,
+            status: b.driverSalaryStatus || 'paid',
+            vehicleId: b.vehicleId,
+            notes: b.notes || ''
+        }))
+    ];
 
     if (bCount) bCount.textContent = bills.length;
     if (fCount) fCount.textContent = fuel.length;
+    if (sCount) sCount.textContent = combinedSalaries.length;
 
     if (billsSec) {
         if (bills.length === 0) {
@@ -2735,11 +3497,20 @@ function renderPeriodTxnList(bills, fuel) {
             const sortedBills = [...bills].sort((a, b) => new Date(b.date) - new Date(a.date));
             billsSec.innerHTML = sortedBills.map(b => {
                 const v = getVehicleById(b.vehicleId);
+                const isLocal = Boolean(b.isLocalIncome || b.tripType === 'local');
+                const hasSalary = Boolean(b.addToDriverSalary);
+                const salaryAmt = parseFloat(b.driverSalaryAmount) || parseFloat(b.grandTotal) || 0;
+                const salStatus = b.driverSalaryStatus || 'paid';
+
                 return `
                     <div class="report-txn-item" onclick="viewBill('${b.id}')" style="cursor:pointer;" title="Click to view invoice">
                         <div class="report-txn-left">
-                            <span class="report-txn-main">${b.billNumber} • ${b.customerName || 'Standard Consignment'}</span>
-                            <span class="report-txn-sub">${formatDate(b.date)} | ${v ? v.name + ' (' + v.number + ')' : '-'} | ${b.fromLocation || ''} → ${b.toLocation || ''}</span>
+                            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                                <span class="report-txn-main">${b.billNumber} • ${isLocal ? '⚡ Local Income Run' : (b.customerName || 'Standard Consignment')}</span>
+                                ${isLocal ? `<span class="badge-tag-local">⚡ Local</span>` : ''}
+                                ${hasSalary ? `<span class="badge-tag-salary">👤 Driver: ${b.driverName || 'Assigned'} (${formatCurrency(salaryAmt)}) <span class="${salStatus === 'unpaid' ? 'badge-salary-unpaid' : 'badge-salary-paid'}" style="margin-left:2px;font-size:9px;padding:1px 5px;">${salStatus.toUpperCase()}</span></span>` : ''}
+                            </div>
+                            <span class="report-txn-sub">${formatDate(b.date)} | ${v ? v.name + ' (' + v.number + ')' : '-'} | ${isLocal ? '⚡ Local Run' : `${b.fromLocation || ''} → ${b.toLocation || ''}`}</span>
                         </div>
                         <div class="report-txn-right">
                             <span class="report-txn-amount revenue">${formatCurrency(b.grandTotal)}</span>
@@ -2773,7 +3544,186 @@ function renderPeriodTxnList(bills, fuel) {
             }).join('');
         }
     }
+
+    if (salarySec) {
+        if (combinedSalaries.length === 0) {
+            salarySec.innerHTML = `
+                <div class="empty-state" style="padding:24px 20px;text-align:center;color:var(--text-muted);">
+                    <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="margin-bottom:8px;opacity:0.6;"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    <p style="margin:0 0 12px 0;">No driver salary payout records found for this period</p>
+                    <button type="button" class="btn-primary-app btn-sm" onclick="openDriverSalaryModal()" style="background:linear-gradient(135deg, #10B981, #059669);border-color:rgba(16,185,129,0.4);">
+                        + Add Driver Salary
+                    </button>
+                </div>`;
+        } else {
+            const totalSalaryAmt = combinedSalaries.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
+            const paidSalaries = combinedSalaries.filter(item => item.status !== 'unpaid');
+            const unpaidSalaries = combinedSalaries.filter(item => item.status === 'unpaid');
+            const paidSalaryAmt = paidSalaries.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
+            const unpaidSalaryAmt = unpaidSalaries.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
+
+            let filteredSalary = combinedSalaries;
+            if (reportSalarySubFilter === 'paid') {
+                filteredSalary = paidSalaries;
+            } else if (reportSalarySubFilter === 'unpaid') {
+                filteredSalary = unpaidSalaries;
+            }
+
+            if (reportSalaryDriverFilter !== 'all') {
+                filteredSalary = filteredSalary.filter(item => (item.driverName || '').trim().toLowerCase() === reportSalaryDriverFilter.toLowerCase());
+            }
+
+            const sortedSalary = [...filteredSalary].sort((a, b) => new Date(b.date) - new Date(a.date));
+            const periodDrivers = Array.from(new Set(combinedSalaries.map(item => (item.driverName || 'Driver').trim()))).sort();
+
+            let html = `
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+                    <div style="font-size:12px;color:var(--text-muted);font-weight:600;">
+                        <span>Driver Salary Ledger (Operating Expenses)</span>
+                    </div>
+                    <button type="button" class="btn-primary-app btn-sm" onclick="openDriverSalaryModal()" style="background:linear-gradient(135deg, #10B981, #059669);font-size:11px;padding:5px 12px;border-color:rgba(16,185,129,0.4);">
+                        + Add Driver Salary
+                    </button>
+                </div>
+
+                <div class="salary-report-summary-bar">
+                    <div class="salary-summary-box">
+                        <span class="salary-summary-label">Total Salary</span>
+                        <span class="salary-summary-amount">${formatCurrency(totalSalaryAmt)}</span>
+                        <span style="font-size:11px;color:var(--text-muted);">${combinedSalaries.length} records</span>
+                    </div>
+                    <div class="salary-summary-box">
+                        <span class="salary-summary-label">✓ Paid to Driver</span>
+                        <span class="salary-summary-amount paid">${formatCurrency(paidSalaryAmt)}</span>
+                        <span style="font-size:11px;color:#10b981;">${paidSalaries.length} disbursed</span>
+                    </div>
+                    <div class="salary-summary-box">
+                        <span class="salary-summary-label">⏳ Unpaid (Pending)</span>
+                        <span class="salary-summary-amount unpaid">${formatCurrency(unpaidSalaryAmt)}</span>
+                        <span style="font-size:11px;color:#f59e0b;">${unpaidSalaries.length} pending payout</span>
+                    </div>
+                </div>
+
+                <div class="salary-filter-tabs">
+                    <span style="font-size:11px;font-weight:700;color:var(--text-muted);margin-right:4px;">Filter List:</span>
+                    <button type="button" class="salary-filter-pill ${reportSalarySubFilter === 'all' ? 'active' : ''}" onclick="setReportSalarySubFilter('all')">
+                        All (${combinedSalaries.length})
+                    </button>
+                    <button type="button" class="salary-filter-pill paid-pill ${reportSalarySubFilter === 'paid' ? 'active' : ''}" onclick="setReportSalarySubFilter('paid')">
+                        ✓ Paid (${paidSalaries.length}) • ${formatCurrency(paidSalaryAmt)}
+                    </button>
+                    <button type="button" class="salary-filter-pill unpaid-pill ${reportSalarySubFilter === 'unpaid' ? 'active' : ''}" onclick="setReportSalarySubFilter('unpaid')">
+                        ⏳ Unpaid (${unpaidSalaries.length}) • ${formatCurrency(unpaidSalaryAmt)}
+                    </button>
+                </div>
+
+                ${periodDrivers.length > 1 ? `
+                    <div class="salary-filter-tabs" style="margin-top:-4px;margin-bottom:14px;">
+                        <span style="font-size:11px;font-weight:700;color:var(--text-muted);margin-right:4px;">By Driver:</span>
+                        <button type="button" class="salary-filter-pill ${reportSalaryDriverFilter === 'all' ? 'active' : ''}" onclick="setReportSalaryDriverFilter('all')">
+                            All Drivers
+                        </button>
+                        ${periodDrivers.map(d => `
+                            <button type="button" class="salary-filter-pill ${reportSalaryDriverFilter.toLowerCase() === d.toLowerCase() ? 'active' : ''}" onclick="setReportSalaryDriverFilter('${d.replace(/'/g, "\\'")}')">
+                                👤 ${d}
+                            </button>
+                        `).join('')}
+                    </div>
+                ` : ''}
+            `;
+
+            if (sortedSalary.length === 0) {
+                html += `<div class="empty-state" style="padding:20px;text-align:center;color:var(--text-muted);"><p>No ${reportSalarySubFilter} driver salary records matching this filter</p></div>`;
+            } else {
+                html += sortedSalary.map(item => {
+                    const v = getVehicleById(item.vehicleId);
+                    const isPaid = (item.status || 'paid') !== 'unpaid';
+                    const isDirect = item.isDirect;
+                    const clickAction = isDirect ? `openDriverSalaryModal('${item.id}')` : `viewBill('${item.id}')`;
+                    const togglePayAction = isDirect 
+                        ? `toggleStandaloneSalaryPaidStatus('${item.id}', 'paid', event)` 
+                        : `toggleSalaryPaidStatus('${item.id}', 'paid', event)`;
+                    const toggleUnpayAction = isDirect 
+                        ? `toggleStandaloneSalaryPaidStatus('${item.id}', 'unpaid', event)` 
+                        : `toggleSalaryPaidStatus('${item.id}', 'unpaid', event)`;
+
+                    return `
+                        <div class="report-txn-item" onclick="${clickAction}" style="cursor:pointer;" title="Click to view/edit salary details">
+                            <div class="report-txn-left">
+                                <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                                    <span class="report-txn-main">👤 ${item.driverName}</span>
+                                    <span class="badge-tag-salary">${isDirect ? 'Driver Payout' : `Bill ${item.billNumber}`}</span>
+                                    ${v ? `<span class="badge-tag-local">${v.name}</span>` : ''}
+                                    <span class="${isPaid ? 'badge-salary-paid' : 'badge-salary-unpaid'}">
+                                        ${isPaid ? '✓ PAID' : '⏳ UNPAID'}
+                                    </span>
+                                </div>
+                                <span class="report-txn-sub">
+                                    ${formatDate(item.date)} | ${v ? v.name + ' (' + v.number + ')' : 'General Fleet'} | 
+                                    ${item.notes || 'Driver salary allocation'}
+                                </span>
+                            </div>
+                            <div class="report-txn-right" style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;">
+                                <span class="report-txn-amount salary" style="color:#0ea5e9;">${formatCurrency(item.amount)}</span>
+                                <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+                                    <button type="button" class="btn-toggle-salary-status" style="background:rgba(99,102,241,0.12);color:#6366f1;border-color:rgba(99,102,241,0.3);" onclick="event.stopPropagation(); ${isDirect ? `openDriverSalaryModal('${item.id}')` : `viewBill('${item.id}')`}" title="Edit this salary entry">
+                                        ✏️ Edit
+                                    </button>
+                                    ${!isPaid ? `
+                                        <button type="button" class="btn-toggle-salary-status pay" onclick="${togglePayAction}" title="Click to mark this salary as paid">
+                                            ✓ Mark Paid
+                                        </button>
+                                    ` : `
+                                        <button type="button" class="btn-toggle-salary-status unpay" onclick="${toggleUnpayAction}" title="Click to revert to unpaid">
+                                            ↺ Mark Unpaid
+                                        </button>
+                                    `}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+            salarySec.innerHTML = html;
+        }
+    }
 }
+
+// Salary filter state & toggle functions
+let reportSalarySubFilter = 'all';
+let reportSalaryDriverFilter = 'all';
+
+function setReportSalarySubFilter(filter) {
+    reportSalarySubFilter = filter;
+    renderPeriodTxnList();
+}
+window.setReportSalarySubFilter = setReportSalarySubFilter;
+
+function setReportSalaryDriverFilter(driver) {
+    reportSalaryDriverFilter = driver;
+    renderPeriodTxnList();
+}
+window.setReportSalaryDriverFilter = setReportSalaryDriverFilter;
+
+function toggleSalaryPaidStatus(billId, newStatus, event) {
+    if (event) event.stopPropagation();
+    const bills = getBills();
+    const bill = bills.find(b => b.id === billId);
+    if (!bill) return;
+
+    bill.driverSalaryStatus = newStatus;
+    saveBills(bills);
+
+    // Sync to Supabase if connected
+    if (isSupabaseConnected && supabaseClient) {
+        uploadBillToSupabase(bill);
+    }
+
+    renderPeriodTxnList();
+    renderBills();
+    showToast(`Salary for ${bill.driverName || 'driver'} marked as ${newStatus.toUpperCase()}! ✅`, 'success');
+}
+window.toggleSalaryPaidStatus = toggleSalaryPaidStatus;
 
 // ===== EXPORT PERIOD CSV =====
 function exportPeriodReportCsv() {
@@ -2800,9 +3750,20 @@ function exportPeriodReportCsv() {
         fuel = fuel.filter(f => f.vehicleId === reportState.vehicleId);
     }
 
+    const stdBills = bills.filter(b => !b.isLocalIncome && b.tripType !== 'local');
+    const localBills = bills.filter(b => b.isLocalIncome === true || b.tripType === 'local');
     const totalRev = bills.reduce((s, b) => s + (parseFloat(b.grandTotal) || 0), 0);
+    const localRev = localBills.reduce((s, b) => s + (parseFloat(b.grandTotal) || 0), 0);
     const totalFuel = fuel.reduce((s, f) => s + (parseFloat(f.totalAmount) || 0), 0);
-    const netProfit = totalRev - totalFuel;
+
+    const salaryBills = bills.filter(b => b.addToDriverSalary === true);
+    const totalDriverSalary = salaryBills.reduce((s, b) => {
+        const amt = parseFloat(b.driverSalaryAmount);
+        return s + (!isNaN(amt) && amt > 0 ? amt : (parseFloat(b.grandTotal) || 0));
+    }, 0);
+
+    const totalExpenses = totalFuel + totalDriverSalary;
+    const netProfit = totalRev - totalExpenses;
 
     let csv = `Sri Moorthy Transport - Fleet Financial Statement\n`;
     csv += `Period,${dateRange.label}\n`;
@@ -2810,26 +3771,43 @@ function exportPeriodReportCsv() {
     csv += `Generated On,${new Date().toLocaleString('en-IN')}\n\n`;
 
     csv += `EXECUTIVE SUMMARY\n`;
-    csv += `Gross Revenue,Fuel Expense,Net Profit,Profit Margin,Total Invoices,Total Fuel Logs\n`;
-    csv += `${totalRev},${totalFuel},${netProfit},${totalRev > 0 ? ((netProfit / totalRev) * 100).toFixed(1) + '%' : '0%'},${bills.length},${fuel.length}\n\n`;
+    csv += `Gross Revenue,Local Trip Income,Fuel Expense,Driver Salary Expense,Total Operating Expense,Net Profit,Profit Margin,Total Invoices,Local Invoices,Total Fuel Logs\n`;
+    csv += `${totalRev},${localRev},${totalFuel},${totalDriverSalary},${totalExpenses},${netProfit},${totalRev > 0 ? ((netProfit / totalRev) * 100).toFixed(1) + '%' : '0%'},${bills.length},${localBills.length},${fuel.length}\n\n`;
 
     csv += `VEHICLE PERFORMANCE SUMMARY\n`;
-    csv += `Vehicle Name,Vehicle Number,Invoices,Gross Revenue,Fuel Litres,Fuel Expense,Net Profit\n`;
+    csv += `Vehicle Name,Vehicle Number,Total Trips,Local Trips,Gross Revenue,Local Revenue,Fuel Litres,Fuel Expense,Driver Salary,Total Expenses,Net Profit,Margin %\n`;
     vehicles.forEach(v => {
         const vBills = bills.filter(b => b.vehicleId === v.id);
         const vFuel = fuel.filter(f => f.vehicleId === v.id);
+        const vLocal = vBills.filter(b => b.isLocalIncome === true || b.tripType === 'local');
         const rev = vBills.reduce((s, b) => s + (parseFloat(b.grandTotal) || 0), 0);
+        const locRev = vLocal.reduce((s, b) => s + (parseFloat(b.grandTotal) || 0), 0);
         const fCost = vFuel.reduce((s, f) => s + (parseFloat(f.totalAmount) || 0), 0);
         const ltrs = vFuel.reduce((s, f) => s + (parseFloat(f.litres) || 0), 0);
-        const prof = rev - fCost;
-        csv += `"${v.name}","${v.number}",${vBills.length},${rev},${ltrs},${fCost},${prof}\n`;
+        const dSal = vBills.reduce((s, b) => {
+            if (b.addToDriverSalary) {
+                const amt = parseFloat(b.driverSalaryAmount);
+                return s + (!isNaN(amt) && amt > 0 ? amt : (parseFloat(b.grandTotal) || 0));
+            }
+            return s;
+        }, 0);
+        const exp = fCost + dSal;
+        const prof = rev - exp;
+        const marg = rev > 0 ? ((prof / rev) * 100).toFixed(1) + '%' : '0%';
+        csv += `"${v.name}","${v.number}",${vBills.length},${vLocal.length},${rev},${locRev},${ltrs},${fCost},${dSal},${exp},${prof},${marg}\n`;
     });
 
     csv += `\nDETAILED INVOICES & BILLS\n`;
-    csv += `Bill No,Date,Vehicle,Customer,Route,Subtotal,GST,Grand Total,Paid,Balance,Status\n`;
+    csv += `Bill No,Date,Vehicle,Customer,Route,Trip Classification,Driver Salary Allocated,Driver Name,Driver Salary Amount,Driver Salary Status,Subtotal,GST,Grand Total,Paid,Balance,Status\n`;
     bills.forEach(b => {
         const v = getVehicleById(b.vehicleId);
-        csv += `"${b.billNumber}","${b.date}","${v ? v.number : '-'}","${b.customerName || ''}","${b.fromLocation || ''} -> ${b.toLocation || ''}",${b.subtotal || 0},${b.gst || 0},${b.grandTotal || 0},${b.amountPaid || 0},${b.balance || 0},"${b.paymentStatus || ''}"\n`;
+        const isLoc = Boolean(b.isLocalIncome || b.tripType === 'local');
+        const tripCls = isLoc ? 'Local Income Trip' : 'Standard Outstation Trip';
+        const hasSal = Boolean(b.addToDriverSalary);
+        const salAmt = parseFloat(b.driverSalaryAmount) || parseFloat(b.grandTotal) || 0;
+        const salStatus = b.driverSalaryStatus || 'paid';
+        const custDisplay = isLoc ? 'Local Run (Direct)' : (b.customerName || '');
+        csv += `"${b.billNumber}","${b.date}","${v ? v.number : '-'}","${custDisplay}","${b.fromLocation || ''} -> ${b.toLocation || ''}","${tripCls}","${hasSal ? 'Yes' : 'No'}","${b.driverName || ''}",${hasSal ? salAmt : 0},"${hasSal ? salStatus : '-'},${b.subtotal || 0},${b.gst || 0},${b.grandTotal || 0},${b.amountPaid || 0},${b.balance || 0},"${b.paymentStatus || ''}"\n`;
     });
 
     csv += `\nDETAILED FUEL EXPENSES\n`;
@@ -2874,10 +3852,21 @@ function printReportStatement() {
         fuel = fuel.filter(f => f.vehicleId === reportState.vehicleId);
     }
 
+    const stdBills = bills.filter(b => !b.isLocalIncome && b.tripType !== 'local');
+    const localBills = bills.filter(b => b.isLocalIncome === true || b.tripType === 'local');
     const totalRev = bills.reduce((s, b) => s + (parseFloat(b.grandTotal) || 0), 0);
+    const localRev = localBills.reduce((s, b) => s + (parseFloat(b.grandTotal) || 0), 0);
     const totalFuel = fuel.reduce((s, f) => s + (parseFloat(f.totalAmount) || 0), 0);
     const totalLitres = fuel.reduce((s, f) => s + (parseFloat(f.litres) || 0), 0);
-    const netProfit = totalRev - totalFuel;
+
+    const salaryBills = bills.filter(b => b.addToDriverSalary === true);
+    const totalDriverSalary = salaryBills.reduce((s, b) => {
+        const amt = parseFloat(b.driverSalaryAmount);
+        return s + (!isNaN(amt) && amt > 0 ? amt : (parseFloat(b.grandTotal) || 0));
+    }, 0);
+
+    const totalExpenses = totalFuel + totalDriverSalary;
+    const netProfit = totalRev - totalExpenses;
     const margin = totalRev > 0 ? ((netProfit / totalRev) * 100).toFixed(1) + '%' : '0%';
 
     const pWin = window.open('', '_blank');
@@ -2889,7 +3878,7 @@ function printReportStatement() {
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet">
         <style>
             * { margin:0; padding:0; box-sizing:border-box; }
-            body { font-family:'Inter', sans-serif; padding:30px; color:#1e293b; max-width:850px; margin:0 auto; font-size:13px; line-height:1.5; }
+            body { font-family:'Inter', sans-serif; padding:30px; color:#1e293b; max-width:900px; margin:0 auto; font-size:13px; line-height:1.5; }
             .header { display:flex; justify-content:space-between; align-items:center; border-bottom:3px solid #EF5226; padding-bottom:16px; margin-bottom:20px; }
             .brand h1 { font-family:'Outfit', sans-serif; font-size:24px; color:#0f172a; }
             .brand h1 span { color:#EF5226; }
@@ -2897,21 +3886,25 @@ function printReportStatement() {
             .meta { text-align:right; font-size:12px; color:#475569; }
             .meta strong { color:#0f172a; }
             .period-badge { display:inline-block; background:#fff1ee; color:#EF5226; font-weight:700; padding:4px 10px; border-radius:6px; margin-top:4px; font-size:12px; }
-            .kpi-grid { display:grid; grid-template-columns:repeat(4, 1fr); gap:12px; margin:20px 0; }
-            .kpi-card { background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:12px; }
+            .kpi-grid { display:grid; grid-template-columns:repeat(5, 1fr); gap:10px; margin:20px 0; }
+            .kpi-card { background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px 12px; }
             .kpi-title { font-size:10px; text-transform:uppercase; color:#64748b; font-weight:700; }
-            .kpi-val { font-family:'Outfit', sans-serif; font-size:18px; font-weight:800; color:#0f172a; margin-top:4px; }
+            .kpi-val { font-family:'Outfit', sans-serif; font-size:17px; font-weight:800; color:#0f172a; margin-top:4px; }
             .kpi-val.green { color:#16a34a; }
             .kpi-val.red { color:#dc2626; }
+            .kpi-val.teal { color:#0ea5e9; }
+            .kpi-sub { font-size:10px; color:#64748b; margin-top:2px; }
             h3 { font-family:'Outfit', sans-serif; font-size:15px; margin:22px 0 10px 0; color:#0f172a; border-left:4px solid #EF5226; padding-left:8px; }
             table { width:100%; border-collapse:collapse; margin-bottom:16px; font-size:12px; }
-            th { background:#f1f5f9; padding:8px 10px; text-align:left; font-size:11px; text-transform:uppercase; color:#475569; border:1px solid #cbd5e1; }
-            td { padding:8px 10px; border:1px solid #e2e8f0; }
+            th { background:#f1f5f9; padding:8px 8px; text-align:left; font-size:11px; text-transform:uppercase; color:#475569; border:1px solid #cbd5e1; white-space:nowrap; }
+            td { padding:7px 8px; border:1px solid #e2e8f0; }
             tr:nth-child(even) { background:#f8fafc; }
             .total-row { font-weight:800; background:#e2e8f0 !important; }
             .footer-sign { display:flex; justify-content:space-between; margin-top:40px; padding-top:20px; border-top:1px dashed #cbd5e1; }
             .sign-box { text-align:center; min-width:180px; }
             .sign-line { border-top:1px solid #475569; margin-top:40px; padding-top:6px; font-weight:600; font-size:11px; }
+            .badge-local { background:rgba(245, 158, 11, 0.15); color:#d97706; padding:2px 6px; border-radius:4px; font-size:10px; font-weight:700; }
+            .badge-salary { background:rgba(14, 165, 233, 0.15); color:#0284c7; padding:2px 6px; border-radius:4px; font-size:10px; font-weight:700; }
             @media print { body { padding:10px; } button { display:none; } }
         </style>
     </head>
@@ -2923,7 +3916,7 @@ function printReportStatement() {
                 <div class="period-badge">📅 ${dateRange.label}</div>
             </div>
             <div class="meta">
-                <p><strong>REPORT STATEMENT</strong></p>
+                <p><strong>MANAGEMENT P&L STATEMENT</strong></p>
                 <p>Generated: ${new Date().toLocaleDateString('en-IN')}</p>
                 <p>Scope: ${reportState.vehicleId === 'all' ? 'Entire Fleet' : reportState.vehicleId}</p>
             </div>
@@ -2933,31 +3926,41 @@ function printReportStatement() {
             <div class="kpi-card">
                 <div class="kpi-title">Gross Revenue</div>
                 <div class="kpi-val green">${formatCurrency(totalRev)}</div>
+                <div class="kpi-sub">Local: ${formatCurrency(localRev)}</div>
             </div>
             <div class="kpi-card">
-                <div class="kpi-title">Fuel Expenses</div>
+                <div class="kpi-title">Fuel Cost</div>
                 <div class="kpi-val red">${formatCurrency(totalFuel)}</div>
+                <div class="kpi-sub">${totalLitres.toFixed(1)} L used</div>
             </div>
             <div class="kpi-card">
-                <div class="kpi-title">Net Operating Profit</div>
+                <div class="kpi-title">Driver Salary</div>
+                <div class="kpi-val teal">${formatCurrency(totalDriverSalary)}</div>
+                <div class="kpi-sub">${salaryBills.length} allocations</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-title">Net Profit/Loss</div>
                 <div class="kpi-val ${netProfit >= 0 ? 'green' : 'red'}">${formatCurrency(netProfit)}</div>
+                <div class="kpi-sub">${netProfit >= 0 ? 'Profit' : 'Loss'}</div>
             </div>
             <div class="kpi-card">
-                <div class="kpi-title">Operating Margin</div>
+                <div class="kpi-title">Margin %</div>
                 <div class="kpi-val">${margin}</div>
+                <div class="kpi-sub">Rev - Fuel - Salary</div>
             </div>
         </div>
 
-        <h3>Vehicle Performance Summary</h3>
+        <h3>Vehicle Profit & Loss Summary</h3>
         <table>
             <thead>
                 <tr>
                     <th>Vehicle</th>
-                    <th>Invoices</th>
-                    <th>Revenue</th>
-                    <th>Fuel (L)</th>
+                    <th style="text-align:center;">Trips (Std/Local)</th>
+                    <th>Gross Revenue</th>
                     <th>Fuel Cost</th>
-                    <th>Net Profit</th>
+                    <th>Driver Salary</th>
+                    <th>Total Expenses</th>
+                    <th>Net Profit / Loss</th>
                     <th>Margin</th>
                 </tr>
             </thead>
@@ -2965,27 +3968,38 @@ function printReportStatement() {
                 ${vehicles.map(v => {
                     const vBills = bills.filter(b => b.vehicleId === v.id);
                     const vFuel = fuel.filter(f => f.vehicleId === v.id);
+                    const vStd = vBills.filter(b => !b.isLocalIncome && b.tripType !== 'local');
+                    const vLocal = vBills.filter(b => b.isLocalIncome === true || b.tripType === 'local');
                     const rev = vBills.reduce((s, b) => s + (parseFloat(b.grandTotal) || 0), 0);
                     const fCost = vFuel.reduce((s, f) => s + (parseFloat(f.totalAmount) || 0), 0);
-                    const ltrs = vFuel.reduce((s, f) => s + (parseFloat(f.litres) || 0), 0);
-                    const prof = rev - fCost;
+                    const dSal = vBills.reduce((s, b) => {
+                        if (b.addToDriverSalary) {
+                            const amt = parseFloat(b.driverSalaryAmount);
+                            return s + (!isNaN(amt) && amt > 0 ? amt : (parseFloat(b.grandTotal) || 0));
+                        }
+                        return s;
+                    }, 0);
+                    const exp = fCost + dSal;
+                    const prof = rev - exp;
                     const marg = rev > 0 ? ((prof / rev) * 100).toFixed(1) + '%' : '0%';
                     return `<tr>
                         <td><strong>${v.name}</strong> (${v.number})</td>
-                        <td>${vBills.length}</td>
+                        <td style="text-align:center;">${vBills.length} <span style="color:#64748b;font-size:10px;">(${vStd.length}/${vLocal.length}L)</span></td>
                         <td style="color:#16a34a;font-weight:600;">${formatCurrency(rev)}</td>
-                        <td>${ltrs.toFixed(1)} L</td>
                         <td style="color:#dc2626;">${formatCurrency(fCost)}</td>
+                        <td style="color:#0284c7;">${dSal > 0 ? formatCurrency(dSal) : '—'}</td>
+                        <td style="color:#475569;font-weight:600;">${formatCurrency(exp)}</td>
                         <td style="font-weight:700;color:${prof >= 0 ? '#16a34a' : '#dc2626'}">${formatCurrency(prof)}</td>
                         <td>${marg}</td>
                     </tr>`;
                 }).join('')}
                 <tr class="total-row">
                     <td>TOTAL FLEET</td>
-                    <td>${bills.length}</td>
+                    <td style="text-align:center;">${bills.length} (${stdBills.length}/${localBills.length}L)</td>
                     <td style="color:#16a34a;">${formatCurrency(totalRev)}</td>
-                    <td>${totalLitres.toFixed(1)} L</td>
                     <td style="color:#dc2626;">${formatCurrency(totalFuel)}</td>
+                    <td style="color:#0284c7;">${formatCurrency(totalDriverSalary)}</td>
+                    <td style="color:#475569;">${formatCurrency(totalExpenses)}</td>
                     <td style="color:${netProfit >= 0 ? '#16a34a' : '#dc2626'}">${formatCurrency(netProfit)}</td>
                     <td>${margin}</td>
                 </tr>
@@ -2995,17 +4009,31 @@ function printReportStatement() {
         <h3>Invoices Issued in Period (${bills.length})</h3>
         <table>
             <thead>
-                <tr><th>Bill No</th><th>Date</th><th>Vehicle</th><th>Customer</th><th>Route</th><th style="text-align:right;">Amount</th></tr>
+                <tr>
+                    <th>Bill No</th>
+                    <th>Date</th>
+                    <th>Vehicle</th>
+                    <th>Customer</th>
+                    <th>Route</th>
+                    <th>Trip Type</th>
+                    <th>Driver Salary</th>
+                    <th style="text-align:right;">Amount</th>
+                </tr>
             </thead>
             <tbody>
-                ${bills.length === 0 ? '<tr><td colspan="6" style="text-align:center;">No bills in this period</td></tr>' : bills.map(b => {
+                ${bills.length === 0 ? '<tr><td colspan="8" style="text-align:center;">No bills in this period</td></tr>' : bills.map(b => {
                     const v = getVehicleById(b.vehicleId);
+                    const isLoc = Boolean(b.isLocalIncome || b.tripType === 'local');
+                    const hasSal = Boolean(b.addToDriverSalary);
+                    const salAmt = parseFloat(b.driverSalaryAmount) || parseFloat(b.grandTotal) || 0;
                     return `<tr>
                         <td><strong>${b.billNumber}</strong></td>
                         <td>${b.date}</td>
                         <td>${v ? v.number : '-'}</td>
-                        <td>${b.customerName || '-'}</td>
+                        <td>${isLoc ? '⚡ Local Income Run' : (b.customerName || '-')}</td>
                         <td>${b.fromLocation || ''} → ${b.toLocation || ''}</td>
+                        <td>${isLoc ? '<span class="badge-local">⚡ Local</span>' : 'Standard'}</td>
+                        <td>${hasSal ? `<span class="badge-salary">${formatCurrency(salAmt)} (${b.driverName || 'Driver'}) [${(b.driverSalaryStatus || 'paid').toUpperCase()}]</span>` : '—'}</td>
                         <td style="text-align:right;font-weight:700;">${formatCurrency(b.grandTotal)}</td>
                     </tr>`;
                 }).join('')}
@@ -3015,15 +4043,16 @@ function printReportStatement() {
         <h3>Fuel Refills Recorded (${fuel.length})</h3>
         <table>
             <thead>
-                <tr><th>Date</th><th>Vehicle</th><th>Station</th><th>Litres</th><th>Rate</th><th style="text-align:right;">Total Cost</th></tr>
+                <tr><th>Date</th><th>Vehicle</th><th>Station</th><th>Driver</th><th>Litres</th><th>Rate</th><th style="text-align:right;">Total Cost</th></tr>
             </thead>
             <tbody>
-                ${fuel.length === 0 ? '<tr><td colspan="6" style="text-align:center;">No fuel entries in this period</td></tr>' : fuel.map(f => {
+                ${fuel.length === 0 ? '<tr><td colspan="7" style="text-align:center;">No fuel entries in this period</td></tr>' : fuel.map(f => {
                     const v = getVehicleById(f.vehicleId);
                     return `<tr>
                         <td>${f.date}</td>
                         <td>${v ? v.number : '-'}</td>
                         <td>${f.station || 'Fuel Station'}</td>
+                        <td>${f.driver || '—'}</td>
                         <td>${parseFloat(f.litres).toFixed(1)} L</td>
                         <td>${formatCurrency(f.rate)}</td>
                         <td style="text-align:right;font-weight:700;color:#dc2626;">${formatCurrency(f.totalAmount)}</td>
@@ -3056,7 +4085,8 @@ function exportAllData() {
         company: 'Sri Moorthy Transport',
         vehicles: getVehicles(),
         bills: getBills(),
-        fuelLogs: getFuelLogs()
+        fuelLogs: getFuelLogs(),
+        driverSalaries: getDriverSalaries()
     };
 
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -3158,6 +4188,11 @@ function mapBillToSupabase(b) {
         amount_paid: parseFloat(b.amountPaid) || 0,
         balance: parseFloat(b.balance) || 0,
         payment_status: b.paymentStatus || 'unpaid',
+        is_local_income: Boolean(b.isLocalIncome || b.tripType === 'local'),
+        add_to_driver_salary: Boolean(b.addToDriverSalary),
+        driver_name: b.driverName || null,
+        driver_salary_amount: parseFloat(b.driverSalaryAmount) || 0,
+        driver_salary_status: b.driverSalaryStatus || 'paid',
         notes: b.notes || null,
         created_at: b.createdAt || new Date().toISOString(),
         updated_at: new Date().toISOString()
@@ -3183,6 +4218,11 @@ function mapBillFromSupabase(row) {
         amountPaid: parseFloat(row.amount_paid) || 0,
         balance: parseFloat(row.balance) || 0,
         paymentStatus: row.payment_status || 'unpaid',
+        isLocalIncome: Boolean(row.is_local_income),
+        addToDriverSalary: Boolean(row.add_to_driver_salary),
+        driverName: row.driver_name || '',
+        driverSalaryAmount: parseFloat(row.driver_salary_amount) || 0,
+        driverSalaryStatus: row.driver_salary_status || 'paid',
         notes: row.notes || '',
         createdAt: row.created_at,
         updatedAt: row.updated_at
@@ -3265,6 +4305,65 @@ async function uploadFuelToSupabase(fuel) {
         }
     } catch (err) {
         console.error('Supabase uploadFuel error:', err);
+    }
+}
+
+function mapDriverSalaryToSupabase(salary) {
+    const vUUID = salary.vehicleId ? getVehicleUUID(salary.vehicleId) : null;
+    const row = {
+        date: salary.date,
+        driver_name: salary.driverName,
+        amount: parseFloat(salary.amount) || 0,
+        status: salary.status || 'paid',
+        vehicle_id: vUUID,
+        notes: salary.notes || null,
+        updated_at: new Date().toISOString()
+    };
+    if (salary.id && isValidUUID(salary.id)) {
+        row.id = salary.id;
+    }
+    return row;
+}
+
+function mapDriverSalaryFromSupabase(row) {
+    return {
+        id: row.id,
+        date: row.date,
+        driverName: row.driver_name,
+        amount: parseFloat(row.amount) || 0,
+        status: row.status || 'paid',
+        vehicleId: row.vehicle_id || '',
+        notes: row.notes || '',
+        createdAt: row.created_at,
+        updatedAt: row.updated_at
+    };
+}
+
+async function uploadDriverSalaryToSupabase(salary) {
+    if (!supabaseClient || !isSupabaseConnected) return;
+    if (!hasRelationalTables) return;
+    try {
+        const row = mapDriverSalaryToSupabase(salary);
+        const { error } = await supabaseClient.from('driver_salaries').upsert(row);
+        if (error) {
+            console.error('Supabase driver salary upsert error:', error);
+        } else {
+            console.log('Driver salary synced to Supabase successfully:', salary.driverName);
+        }
+    } catch (err) {
+        console.error('Supabase uploadDriverSalary error:', err);
+    }
+}
+
+async function deleteDriverSalaryFromSupabase(id) {
+    if (!supabaseClient || !isSupabaseConnected) return;
+    if (!hasRelationalTables) return;
+    try {
+        if (isValidUUID(id)) {
+            await supabaseClient.from('driver_salaries').delete().eq('id', id);
+        }
+    } catch (err) {
+        console.error('Supabase deleteDriverSalary error:', err);
     }
 }
 
@@ -3494,6 +4593,13 @@ async function pullFromSupabase(showToastMsg = true) {
                     setStore(STORAGE_KEYS.fuel, validFuel);
                     pulledData = true;
                 }
+
+                const { data: sData, error: sErr } = await supabaseClient.from('driver_salaries').select('*');
+                if (!sErr && sData) {
+                    const validSalaries = sData.map(mapDriverSalaryFromSupabase);
+                    saveDriverSalaries(validSalaries);
+                    pulledData = true;
+                }
             } catch (tableErr) {
                 console.warn('Table query note:', tableErr);
             }
@@ -3578,9 +4684,18 @@ async function syncLocalToSupabase(showSuccessToast = true) {
             else console.warn('Fuel sync item warning:', error);
         }
 
+        const salaries = getDriverSalaries();
+        let salariesSynced = 0;
+        for (const sal of salaries) {
+            const row = mapDriverSalaryToSupabase(sal);
+            const { error } = await supabaseClient.from('driver_salaries').upsert(row);
+            if (!error) salariesSynced++;
+            else console.warn('Salary sync item warning:', error);
+        }
+
         await persistFleetToSupabase();
         if (showSuccessToast) {
-            showToast(`✅ Synced ${billsSynced}/${bills.length} bills & ${fuelSynced}/${fuel.length} fuel logs to Supabase! 🚀☁️`, 'success');
+            showToast(`✅ Synced ${billsSynced}/${bills.length} bills, ${fuelSynced}/${fuel.length} fuel logs & ${salariesSynced}/${salaries.length} driver salaries to Supabase! 🚀☁️`, 'success');
         }
     } catch (e) {
         console.error('Sync error:', e);

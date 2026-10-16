@@ -904,7 +904,7 @@ body.dark-mode {
 /* === Stats Row === */
 .stats-row {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(5, 1fr);
     gap: 16px;
     margin-bottom: 24px;
 }
@@ -968,6 +968,7 @@ body.dark-mode {
 .stat-card-app.glow-green::before { background: var(--green); }
 .stat-card-app.glow-blue::before { background: var(--blue); }
 .stat-card-app.glow-purple::before { background: var(--purple); }
+.stat-card-app.glow-red::before { background: var(--red); }
 
 .stat-card-top-row {
     display: flex;
@@ -1010,6 +1011,7 @@ body.dark-mode {
 .stat-trend-chip.blue { background: var(--blue-light); color: var(--blue); border: 1px solid rgba(37, 99, 235, 0.25); }
 .stat-trend-chip.orange { background: var(--orange-light); color: var(--orange); border: 1px solid rgba(255, 107, 0, 0.25); }
 .stat-trend-chip.purple { background: var(--purple-light); color: var(--purple); border: 1px solid rgba(139, 92, 246, 0.25); }
+.stat-trend-chip.red { background: rgba(239, 68, 68, 0.15); color: var(--red); border: 1px solid rgba(239, 68, 68, 0.25); }
 
 .stat-card-label {
     font-size: 11px;
@@ -2739,7 +2741,8 @@ body.dark-mode {
     max-width: 600px;
     max-height: 90vh;
     overflow-y: auto;
-    animation: modalSlideUp 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    animation: modalSlideUp 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+    will-change: transform;
     border: 1px solid var(--border);
     border-bottom: none;
     box-shadow: 0 20px 60px -10px rgba(15, 23, 42, 0.18);
@@ -2750,8 +2753,8 @@ body.dark-mode {
 }
 
 @keyframes modalSlideUp {
-    from { transform: translateY(100%); }
-    to { transform: translateY(0); }
+    from { transform: translateY(60px); opacity: 0.8; }
+    to { transform: translateY(0); opacity: 1; }
 }
 
 .modal-header {
@@ -3272,7 +3275,7 @@ body.dark-mode {
     }
 
     .stats-row {
-        grid-template-columns: repeat(4, 1fr) !important;
+        grid-template-columns: repeat(5, 1fr) !important;
         gap: 20px !important;
     }
 
@@ -4871,4 +4874,1016 @@ body.dark-mode {
 .sidebar-mode-toggle:hover {
     border-color: var(--border-hover);
 }
+
+/* ==========================================================
+   TRIP CLASSIFICATION & DRIVER SALARY STYLES (LOCAL & P&L)
+   ========================================================== */
+.bill-options-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 14px 16px;
+    margin: 16px 0;
+    transition: var(--transition);
+}
+
+.bill-options-card:hover {
+    border-color: var(--border-hover);
+}
+
+.bill-options-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 10px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+}
+
+.bill-options-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-primary);
+    font-family: 'Outfit', sans-serif;
+}
+
+.bill-options-title svg {
+    color: var(--primary);
+}
+
+.badge-accounting {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+    background: rgba(239, 82, 38, 0.12);
+    color: var(--orange);
+    border: 1px solid rgba(239, 82, 38, 0.25);
+}
+
+.bill-option-row {
+    margin-bottom: 10px;
+}
+
+.bill-option-row:last-child {
+    margin-bottom: 0;
+}
+
+/* Custom Stylish Checkbox */
+.bill-custom-check {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    cursor: pointer;
+    padding: 8px 10px;
+    border-radius: var(--radius-sm);
+    transition: background 0.15s ease;
+    user-select: none;
+}
+
+.bill-custom-check:hover {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+[data-mode="light"] .bill-custom-check:hover {
+    background: rgba(0, 0, 0, 0.03);
+}
+
+.bill-custom-check input[type="checkbox"] {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+    pointer-events: none;
+}
+
+.check-box-indicator {
+    width: 20px;
+    height: 20px;
+    border-radius: 6px;
+    border: 2px solid var(--border);
+    background: var(--bg-card);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 2px;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+}
+
+.bill-custom-check:hover .check-box-indicator {
+    border-color: var(--primary);
+}
+
+.bill-custom-check input[type="checkbox"]:checked + .check-box-indicator {
+    background: var(--primary);
+    border-color: var(--primary);
+    box-shadow: 0 0 10px rgba(239, 82, 38, 0.35);
+}
+
+.bill-custom-check input[type="checkbox"]:checked + .check-box-indicator::after {
+    content: '';
+    width: 5px;
+    height: 10px;
+    border: solid #ffffff;
+    border-width: 0 2.2px 2.2px 0;
+    transform: rotate(45deg) translate(-1px, -1px);
+    display: block;
+}
+
+.check-text-wrap {
+    flex: 1;
+    min-width: 0;
+}
+
+.check-title-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.check-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.check-sub {
+    font-size: 11px;
+    color: var(--text-muted);
+    display: block;
+    margin-top: 2px;
+    line-height: 1.4;
+}
+
+.chip-local-trip {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 7px;
+    border-radius: var(--radius-full);
+    background: rgba(245, 158, 11, 0.15);
+    color: #f59e0b;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.chip-driver-salary {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 7px;
+    border-radius: var(--radius-full);
+    background: rgba(16, 185, 129, 0.15);
+    color: #10b981;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+/* Driver Salary Drawer */
+.driver-salary-drawer {
+    margin-top: 10px;
+    padding: 12px 14px;
+    background: var(--bg-card);
+    border: 1px dashed rgba(16, 185, 129, 0.35);
+    border-radius: var(--radius-sm);
+    animation: fadeInDown 0.25s ease;
+}
+
+@keyframes fadeInDown {
+    from {
+        opacity: 0;
+        transform: translateY(-6px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.btn-text-match {
+    background: none;
+    border: none;
+    color: var(--primary);
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: background 0.15s ease;
+}
+
+.btn-text-match:hover {
+    background: rgba(239, 82, 38, 0.1);
+}
+
+.driver-salary-note {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    line-height: 1.4;
+}
+
+.driver-salary-note svg {
+    color: var(--green);
+    flex-shrink: 0;
+}
+
+/* Badges on Bills List */
+.badge-tag-local {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: var(--radius-full);
+    background: rgba(245, 158, 11, 0.15);
+    color: #f59e0b;
+    border: 1px solid rgba(245, 158, 11, 0.35);
+    white-space: nowrap;
+}
+
+.badge-tag-salary {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: var(--radius-full);
+    background: rgba(14, 165, 233, 0.15);
+    color: #0ea5e9;
+    border: 1px solid rgba(14, 165, 233, 0.35);
+    white-space: nowrap;
+}
+
+/* Report KPI Icon Teal */
+.report-kpi-icon.teal {
+    background: rgba(14, 165, 233, 0.12);
+    color: #0ea5e9;
+}
+
+.report-txn-amount.salary {
+    color: #0ea5e9 !important;
+}
+
+/* P&L Table enhancements */
+.pnl-table th {
+    white-space: nowrap;
+}
+
+.pnl-table td {
+    vertical-align: middle;
+}
+
+/* Local Trip Customer Notice */
+.local-trip-notice {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-radius: var(--radius-sm);
+    background: rgba(245, 158, 11, 0.1);
+    border: 1px dashed rgba(245, 158, 11, 0.4);
+    color: #f59e0b;
+    font-size: 12px;
+    margin-bottom: 12px;
+    animation: fadeInDown 0.2s ease;
+}
+
+.local-trip-notice svg {
+    flex-shrink: 0;
+    color: #f59e0b;
+}
+
+/* Driver Selection Quick Chips */
+.driver-quick-chips {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 4px;
+}
+
+.driver-name-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 11px;
+    border-radius: var(--radius-full);
+    border: 1px solid var(--border);
+    background: var(--bg-surface-2, rgba(255, 255, 255, 0.05));
+    color: var(--text);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.driver-name-chip:hover {
+    border-color: #0ea5e9;
+    color: #0ea5e9;
+    background: rgba(14, 165, 233, 0.08);
+    transform: translateY(-1px);
+}
+
+.driver-name-chip.active {
+    background: linear-gradient(135deg, #0ea5e9, #0284c7);
+    color: #ffffff;
+    border-color: #0ea5e9;
+    box-shadow: 0 2px 8px rgba(14, 165, 233, 0.35);
+}
+
+/* Amount preset buttons */
+.btn-amount-chip {
+    padding: 3px 9px;
+    border-radius: var(--radius-full);
+    border: 1px solid var(--border);
+    background: var(--bg-surface-2, rgba(255, 255, 255, 0.04));
+    color: var(--text-secondary);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.12s ease;
+}
+
+.btn-amount-chip:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+    background: rgba(239, 82, 38, 0.08);
+}
+
+/* Driver Salary Payout Toggle (Paid vs Unpaid) */
+.payout-status-toggle-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.btn-payout-toggle {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--bg-surface-2, rgba(255, 255, 255, 0.03));
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.15s ease;
+    position: relative;
+}
+
+.btn-payout-toggle strong {
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.btn-payout-toggle .payout-sub {
+    font-size: 10px;
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+
+.btn-payout-toggle.paid.active {
+    border-color: #10b981;
+    background: rgba(16, 185, 129, 0.12);
+    color: #10b981;
+    box-shadow: 0 0 0 1px #10b981 inset;
+}
+
+.btn-payout-toggle.unpaid.active {
+    border-color: #f59e0b;
+    background: rgba(245, 158, 11, 0.12);
+    color: #f59e0b;
+    box-shadow: 0 0 0 1px #f59e0b inset;
+}
+
+/* Report Salary Ledger Styles */
+.salary-report-summary-bar {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 14px;
+    padding: 12px;
+    border-radius: var(--radius-md);
+    background: var(--bg-surface-2, rgba(255, 255, 255, 0.03));
+    border: 1px solid var(--border);
+}
+
+.salary-summary-box {
+    display: flex;
+    flex-direction: column;
+}
+
+.salary-summary-label {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.salary-summary-amount {
+    font-family: 'Outfit', sans-serif;
+    font-size: 16px;
+    font-weight: 800;
+    margin-top: 2px;
+}
+
+.salary-summary-amount.paid {
+    color: #10b981;
+}
+
+.salary-summary-amount.unpaid {
+    color: #f59e0b;
+}
+
+.salary-filter-tabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.salary-filter-pill {
+    padding: 5px 12px;
+    border-radius: var(--radius-full);
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.salary-filter-pill.active {
+    background: #0ea5e9;
+    border-color: #0ea5e9;
+    color: #ffffff;
+}
+
+.salary-filter-pill.unpaid-pill.active {
+    background: #f59e0b;
+    border-color: #f59e0b;
+    color: #ffffff;
+}
+
+.salary-filter-pill.paid-pill.active {
+    background: #10b981;
+    border-color: #10b981;
+    color: #ffffff;
+}
+
+.badge-salary-paid {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 7px;
+    border-radius: var(--radius-full);
+    background: rgba(16, 185, 129, 0.15);
+    color: #10b981;
+    border: 1px solid rgba(16, 185, 129, 0.35);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.3px;
+}
+
+.badge-salary-unpaid {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 7px;
+    border-radius: var(--radius-full);
+    background: rgba(245, 158, 11, 0.15);
+    color: #f59e0b;
+    border: 1px solid rgba(245, 158, 11, 0.35);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.3px;
+}
+
+.btn-toggle-salary-status {
+    padding: 4px 10px;
+    border-radius: var(--radius-sm);
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    border: 1px solid;
+    transition: all 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.btn-toggle-salary-status.pay {
+    background: rgba(16, 185, 129, 0.12);
+    color: #10b981;
+    border-color: rgba(16, 185, 129, 0.35);
+}
+
+.btn-toggle-salary-status.pay:hover {
+    background: #10b981;
+    color: #ffffff;
+    border-color: #10b981;
+    transform: translateY(-1px);
+}
+
+.btn-toggle-salary-status.unpay {
+    background: rgba(245, 158, 11, 0.1);
+    color: #f59e0b;
+    border-color: rgba(245, 158, 11, 0.3);
+}
+
+.btn-toggle-salary-status.unpay:hover {
+    background: #f59e0b;
+    color: #ffffff;
+    border-color: #f59e0b;
+}
+
+@media (max-width: 640px) {
+    .salary-report-summary-bar {
+        grid-template-columns: 1fr;
+        gap: 6px;
+    }
+}
+
+/* ===================================================
+   DRIVER SALARY BUTTON BOX & PRIMARY DRIVER CARDS
+   (Kumar, Saravanan, Thanda Padi)
+   =================================================== */
+
+/* Header & Action Button */
+.btn-driver-salary-box {
+    background: linear-gradient(135deg, #10B981, #059669) !important;
+    border-color: rgba(16, 185, 129, 0.4) !important;
+    color: #ffffff !important;
+    box-shadow: 0 4px 14px rgba(16, 185, 129, 0.25);
+    transition: all 0.12s ease;
+    touch-action: manipulation;
+    cursor: pointer;
+    user-select: none;
+}
+
+.btn-driver-salary-box:hover {
+    background: linear-gradient(135deg, #059669, #047857) !important;
+    box-shadow: 0 6px 18px rgba(16, 185, 129, 0.35);
+    transform: translateY(-1px);
+}
+
+.btn-driver-salary-box:active {
+    transform: translateY(1px) scale(0.97);
+}
+
+/* Driver Salary Quick Box in Billing Page */
+.driver-salary-quick-box {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 12px 16px;
+    margin-bottom: 14px;
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(14, 165, 233, 0.04) 100%);
+    border: 1px solid rgba(16, 185, 129, 0.25);
+    border-radius: var(--radius-md);
+    backdrop-filter: blur(8px);
+}
+
+.dsq-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.dsq-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-sm);
+    background: rgba(16, 185, 129, 0.15);
+    color: #10b981;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.dsq-text {
+    display: flex;
+    flex-direction: column;
+}
+
+.dsq-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #000000;
+    letter-spacing: 0.2px;
+}
+
+.dsq-sub {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.dsq-drivers {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.btn-dsq-driver {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 12px;
+    background: var(--bg-surface-2, rgba(255, 255, 255, 0.05));
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-full);
+    color: #000000;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.btn-dsq-driver:hover {
+    background: rgba(16, 185, 129, 0.15);
+    border-color: #10b981;
+    color: #10b981;
+    transform: translateY(-1px);
+}
+
+.dsq-avatar {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 800;
+    color: #ffffff;
+}
+
+.avatar-kumar {
+    background: linear-gradient(135deg, #10b981, #059669);
+}
+
+.avatar-saravanan {
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+}
+
+.avatar-thandapadi {
+    background: linear-gradient(135deg, #8b5cf6, #6d28d9);
+}
+
+.btn-dsq-add {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 12px;
+    background: rgba(16, 185, 129, 0.12);
+    border: 1px dashed rgba(16, 185, 129, 0.4);
+    border-radius: var(--radius-full);
+    color: #10b981;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.btn-dsq-add:hover {
+    background: #10b981;
+    color: #ffffff;
+    border-style: solid;
+}
+
+/* Modal Primary Driver Selection Cards */
+.ds-primary-drivers-section {
+    padding: 12px;
+    border-radius: var(--radius-md);
+    background: var(--bg-surface-2, rgba(255, 255, 255, 0.03));
+    border: 1px solid var(--border);
+    margin-bottom: 12px;
+}
+
+.ds-section-label {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+}
+
+.ds-label-hint {
+    color: #10b981;
+    text-transform: none;
+    font-weight: 600;
+}
+
+.ds-primary-drivers-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+}
+
+.btn-primary-driver-card,
+.driver-checkbox-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 12px 8px;
+    background: var(--bg-surface, rgba(255, 255, 255, 0.04));
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+    position: relative;
+    user-select: none;
+}
+
+.btn-primary-driver-card:hover,
+.driver-checkbox-card:hover {
+    border-color: rgba(16, 185, 129, 0.5);
+    background: rgba(16, 185, 129, 0.06);
+    transform: translateY(-2px);
+}
+
+.btn-primary-driver-card.active,
+.driver-checkbox-card.active {
+    border-color: #10b981;
+    background: linear-gradient(180deg, rgba(16, 185, 129, 0.16) 0%, rgba(16, 185, 129, 0.04) 100%);
+    box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.25), 0 4px 12px rgba(16, 185, 129, 0.2);
+}
+
+.driver-card-avatar {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    font-weight: 800;
+    color: #ffffff;
+    margin-bottom: 6px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.driver-card-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.driver-card-name {
+    font-size: 13px;
+    font-weight: 800;
+    color: #000000 !important;
+}
+
+.btn-primary-driver-card.active .driver-card-name,
+.driver-checkbox-card.active .driver-card-name {
+    color: #000000 !important;
+}
+
+.driver-card-role {
+    font-size: 10px;
+    color: var(--text-muted);
+}
+
+/* Driver Card Visible Checkbox Component */
+.driver-card-checkbox-box {
+    position: absolute;
+    top: 7px;
+    right: 7px;
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.driver-select-chk-input {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    margin: 0;
+    cursor: pointer;
+    z-index: 2;
+}
+
+.custom-driver-chk-ui {
+    width: 20px;
+    height: 20px;
+    border-radius: 5px;
+    border: 2px solid #64748b;
+    background: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+}
+
+.custom-driver-chk-ui svg {
+    opacity: 0;
+    transform: scale(0.4);
+    transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.driver-checkbox-card.active .custom-driver-chk-ui,
+.driver-select-chk-input:checked + .custom-driver-chk-ui {
+    background: #10b981;
+    border-color: #10b981;
+    box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.3);
+}
+
+.driver-checkbox-card.active .custom-driver-chk-ui svg,
+.driver-select-chk-input:checked + .custom-driver-chk-ui svg {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.driver-card-check {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #10b981;
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 900;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transform: scale(0.6);
+    transition: all 0.15s ease;
+}
+
+.btn-primary-driver-card.active .driver-card-check {
+    opacity: 1;
+    transform: scale(1);
+}
+
+/* Quick Billing Driver Pill Checkbox */
+.dsq-chk-pill {
+    width: 15px;
+    height: 15px;
+    border-radius: 4px;
+    border: 1.5px solid rgba(0, 0, 0, 0.4);
+    background: #ffffff;
+    color: #10b981;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 2px;
+    transition: all 0.15s ease;
+}
+
+.btn-dsq-driver:hover .dsq-chk-pill {
+    background: #10b981;
+    color: #ffffff;
+    border-color: #10b981;
+}
+
+/* Button Saved Success State */
+.btn-saved-success {
+    background: linear-gradient(135deg, #10B981, #059669) !important;
+    border-color: #10B981 !important;
+    color: #ffffff !important;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.4), 0 4px 16px rgba(16, 185, 129, 0.35) !important;
+    transform: scale(1.02);
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+@keyframes checkmarkBounce {
+    0% { transform: scale(0.4); opacity: 0; }
+    50% { transform: scale(1.25); }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+/* Salary Amount Input Wrap */
+.salary-amount-input-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.currency-symbol-large {
+    position: absolute;
+    left: 14px;
+    font-size: 20px;
+    font-weight: 800;
+    color: #10b981;
+    pointer-events: none;
+}
+
+/* Payout Status Toggle (Paid / Unpaid) */
+.payout-status-toggle {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.payout-status-toggle .btn-payout-toggle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border-radius: var(--radius-md);
+    border: 1.5px solid var(--border);
+    background: var(--bg-surface-2, rgba(255, 255, 255, 0.03));
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.payout-status-toggle .btn-payout-toggle .payout-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 800;
+    background: rgba(255, 255, 255, 0.06);
+    flex-shrink: 0;
+}
+
+.payout-status-toggle .btn-payout-toggle .payout-meta {
+    display: flex;
+    flex-direction: column;
+    text-align: left;
+}
+
+.payout-status-toggle .btn-payout-toggle.paid.active {
+    border-color: #10b981;
+    background: rgba(16, 185, 129, 0.12);
+    color: #10b981;
+}
+
+.payout-status-toggle .btn-payout-toggle.paid.active .payout-icon {
+    background: #10b981;
+    color: #ffffff;
+}
+
+.payout-status-toggle .btn-payout-toggle.unpaid.active {
+    border-color: #f59e0b;
+    background: rgba(245, 158, 11, 0.12);
+    color: #f59e0b;
+}
+
+.payout-status-toggle .btn-payout-toggle.unpaid.active .payout-icon {
+    background: #f59e0b;
+    color: #ffffff;
+}
+
+@media (max-width: 640px) {
+    .driver-salary-quick-box {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    .dsq-drivers {
+        width: 100%;
+        justify-content: flex-start;
+    }
+    .ds-primary-drivers-grid {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 6px;
+    }
+    .btn-primary-driver-card {
+        padding: 8px 4px;
+    }
+    .driver-card-avatar {
+        width: 32px;
+        height: 32px;
+        font-size: 13px;
+    }
+    .driver-card-name {
+        font-size: 11px;
+    }
+}
+
+
 
