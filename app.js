@@ -102,6 +102,7 @@ function getBills() {
 
 function saveBills(bills) {
     setStore(STORAGE_KEYS.bills, bills);
+    recalibrateBillCounter();
 }
 
 function getFuelLogs() {
@@ -133,12 +134,12 @@ function saveNotifications(notifs) {
 function getHighestExistingBillNumber() {
     const bills = getBills();
     let max = 0;
-    bills.forEach(b => {
+    (bills || []).forEach(b => {
         if (b && b.billNumber) {
             const m = String(b.billNumber).match(/(\d+)$/);
             if (m) {
                 const n = parseInt(m[1], 10);
-                if (n > max) max = n;
+                if (!isNaN(n) && n > max) max = n;
             }
         }
     });
@@ -146,44 +147,53 @@ function getHighestExistingBillNumber() {
 }
 
 function recalibrateBillCounter() {
-    const bills = getBills();
+    const highest = getHighestExistingBillNumber();
     const stored = getStore(STORAGE_KEYS.billCounter);
-    // If no bills exist at all in storage, start counter clean at 0 (first bill is SM-0001)
-    if (!bills || bills.length === 0) {
-        if (stored === null || stored === undefined || stored > 0) {
-            setStore(STORAGE_KEYS.billCounter, 0);
-        }
-        return;
-    }
-    // If stored counter is undefined, initialize to highest existing bill
-    if (stored === null || stored === undefined) {
-        setStore(STORAGE_KEYS.billCounter, getHighestExistingBillNumber());
-    }
+    const counterVal = Math.max(highest, parseInt(stored, 10) || 0);
+    setStore(STORAGE_KEYS.billCounter, counterVal);
+    return counterVal;
 }
 
 function peekNextBillNumber() {
-    let storedCounter = getStore(STORAGE_KEYS.billCounter);
-    if (storedCounter === null || storedCounter === undefined) {
-        const bills = getBills();
-        storedCounter = (bills && bills.length > 0) ? getHighestExistingBillNumber() : 0;
-        setStore(STORAGE_KEYS.billCounter, storedCounter);
-    }
-    const nextVal = Math.max(0, parseInt(storedCounter, 10)) + 1;
+    const highest = getHighestExistingBillNumber();
+    const stored = getStore(STORAGE_KEYS.billCounter);
+    const counterVal = Math.max(highest, parseInt(stored, 10) || 0);
+    setStore(STORAGE_KEYS.billCounter, counterVal);
+    const nextVal = counterVal + 1;
     return 'SM-' + String(nextVal).padStart(4, '0');
 }
 
 function getNextBillNumber() {
-    // Non-mutating: preview next available number without incrementing counter until booked
     return peekNextBillNumber();
 }
+
+function autoChangeBillNumber() {
+    recalibrateBillCounter();
+    const nextNum = getNextBillNumber();
+    const billNumberInput = document.getElementById('billNumber');
+    if (billNumberInput) {
+        billNumberInput.value = nextNum;
+        billNumberInput.style.transition = 'all 0.3s ease';
+        billNumberInput.style.borderColor = 'var(--green, #10B981)';
+        billNumberInput.style.boxShadow = '0 0 10px rgba(16, 185, 129, 0.4)';
+        setTimeout(() => {
+            billNumberInput.style.borderColor = '';
+            billNumberInput.style.boxShadow = '';
+        }, 800);
+    }
+    showToast(`Bill # auto-set to ${nextNum} ⚡`, 'success');
+    return nextNum;
+}
+window.autoChangeBillNumber = autoChangeBillNumber;
+window.getNextBillNumber = getNextBillNumber;
 
 function commitBillNumber(billNumberStr) {
     if (!billNumberStr) return;
     const m = String(billNumberStr).match(/(\d+)$/);
     if (m) {
         const num = parseInt(m[1], 10);
-        // Explicitly set the stored counter to the number that was just booked
-        setStore(STORAGE_KEYS.billCounter, num);
+        const current = getStore(STORAGE_KEYS.billCounter) || 0;
+        setStore(STORAGE_KEYS.billCounter, Math.max(parseInt(current, 10) || 0, num));
     }
 }
 
@@ -1710,7 +1720,9 @@ function openBillModal(billId) {
         // New bill
         document.getElementById('billModalTitle').textContent = 'Create New Bill';
         document.getElementById('billId').value = '';
-        document.getElementById('billNumber').value = getNextBillNumber();
+        recalibrateBillCounter();
+        const autoNext = getNextBillNumber();
+        document.getElementById('billNumber').value = autoNext;
         document.getElementById('billDate').value = new Date().toISOString().split('T')[0];
         const localCheck = document.getElementById('isLocalIncome');
         if (localCheck) localCheck.checked = false;
@@ -1936,9 +1948,18 @@ function saveBill(event) {
             bills[index] = { ...bills[index], ...billData };
         }
         showToast('Bill updated successfully! ✅', 'success');
-    } else {
-        // New bill booking: commit the bill number to the sequence now!
-        const assignedNumber = (document.getElementById('billNumber').value || '').trim() || peekNextBillNumber();
+        // New bill booking: ensure unique sequential bill number
+        let assignedNumber = (document.getElementById('billNumber').value || '').trim();
+        const existingBills = getBills();
+        const isDuplicate = assignedNumber && existingBills.some(b => b.billNumber && b.billNumber.trim().toLowerCase() === assignedNumber.toLowerCase());
+
+        if (!assignedNumber || isDuplicate) {
+            recalibrateBillCounter();
+            assignedNumber = getNextBillNumber();
+            if (isDuplicate) {
+                showToast(`Bill # was duplicate. Auto-changed to ${assignedNumber} ⚡`, 'info');
+            }
+        }
         billData.billNumber = assignedNumber;
         commitBillNumber(assignedNumber);
 
@@ -4052,10 +4073,7 @@ function renderPeriodTxnList(bills, fuel, salaries, services) {
                 </div>
                 <div class="empty-state" style="padding:24px 20px;text-align:center;color:var(--text-muted);">
                     <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="margin-bottom:8px;opacity:0.6;"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
-                    <p style="margin:0 0 12px 0;">No vehicle service or maintenance records found for this period</p>
-                    <button type="button" class="btn-primary-app btn-sm" onclick="openVehicleServiceModal()">
-                        + Add Service Expense
-                    </button>
+                    <p style="margin:0;">No vehicle service or maintenance records found for this period</p>
                 </div>`;
         } else {
             const sortedServices = [...services].sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -5203,6 +5221,7 @@ async function pullFromSupabase(showToastMsg = true) {
                 if (!bErr && bData) {
                     const validBills = bData.map(mapBillFromSupabase).filter(b => !deletedBills.includes(String(b.id)) && !deletedBills.includes(String(b.billNumber)));
                     setStore(STORAGE_KEYS.bills, validBills);
+                    recalibrateBillCounter();
                     pulledData = true;
                 }
 
@@ -5262,6 +5281,9 @@ async function pullFromSupabase(showToastMsg = true) {
         } catch (bucketErr) {
             console.warn('Bucket fetch note:', bucketErr);
         }
+
+        // Recalibrate bill sequence after sync
+        recalibrateBillCounter();
 
         // Refresh UI
         populateVehicleDropdowns();
