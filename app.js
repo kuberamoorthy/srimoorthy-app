@@ -8,6 +8,7 @@ const STORAGE_KEYS = {
     vehicles: 'sm_vehicles',
     bills: 'sm_bills',
     fuel: 'sm_fuel',
+    services: 'sm_vehicle_services',
     notifications: 'sm_notifications',
     billCounter: 'sm_bill_counter',
     dieselRate: 'sm_diesel_rate',
@@ -41,6 +42,7 @@ let currentStorageMethod = 'supabase';
 const DEFAULT_VEHICLES = [
     {
         id: 'v1',
+        uuid: 'efeae18b-7840-4d36-88ae-74d1c2ed3fc7',
         name: 'TATA ACE',
         number: 'TN68C6003',
         type: 'TATA ACE',
@@ -49,6 +51,7 @@ const DEFAULT_VEHICLES = [
     },
     {
         id: 'v2',
+        uuid: 'c3a24376-810e-49c4-9461-681bd9818c9a',
         name: 'TATA ACE',
         number: 'TN68W2419',
         type: 'TATA ACE',
@@ -57,6 +60,7 @@ const DEFAULT_VEHICLES = [
     },
     {
         id: 'v3',
+        uuid: '4b8e9e8d-68cd-4ed8-be9c-5a40481d3152',
         name: 'DOST+',
         number: 'TN82K1945',
         type: 'DOST+',
@@ -107,6 +111,16 @@ function getFuelLogs() {
 function saveFuelLogs(logs) {
     setStore(STORAGE_KEYS.fuel, logs);
 }
+
+function getVehicleServices() {
+    return getStore(STORAGE_KEYS.services) || [];
+}
+window.getVehicleServices = getVehicleServices;
+
+function saveVehicleServices(services) {
+    setStore(STORAGE_KEYS.services, services);
+}
+window.saveVehicleServices = saveVehicleServices;
 
 function getNotifications() {
     return getStore(STORAGE_KEYS.notifications) || [];
@@ -237,10 +251,8 @@ function formatDateShort(dateStr) {
     return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
 }
 
-function getVehicleById(id) {
-    if (!id) return null;
-    const vehicles = getVehicles();
-    return vehicles.find(v => v.id === id || v.number === id || (v.uuid && v.uuid === id));
+function normalizePlateNumber(str) {
+    return (str || '').toString().replace(/[\s-]/g, '').toUpperCase();
 }
 
 const LEGACY_VEHICLE_NUMBERS = {
@@ -249,12 +261,46 @@ const LEGACY_VEHICLE_NUMBERS = {
     'v3': 'TN82K1945'
 };
 
+function isItemForVehicle(itemVehicleId, v) {
+    if (!v || !itemVehicleId) return false;
+    if (itemVehicleId === v.id || (v.uuid && itemVehicleId === v.uuid)) return true;
+    const normItem = normalizePlateNumber(itemVehicleId);
+    const normPlate = normalizePlateNumber(v.number);
+    if (normItem && normPlate && normItem === normPlate) return true;
+    if (LEGACY_VEHICLE_NUMBERS[itemVehicleId] && normalizePlateNumber(LEGACY_VEHICLE_NUMBERS[itemVehicleId]) === normPlate) return true;
+    if (LEGACY_VEHICLE_NUMBERS[v.id] && normalizePlateNumber(LEGACY_VEHICLE_NUMBERS[v.id]) === normItem) return true;
+    return false;
+}
+
+function isVehicleMatch(itemVehicleId, targetVehicleId) {
+    if (!itemVehicleId || !targetVehicleId) return false;
+    if (targetVehicleId === 'all') return true;
+    if (itemVehicleId === targetVehicleId) return true;
+
+    const vehicles = getVehicles();
+    const targetVeh = vehicles.find(v => isItemForVehicle(targetVehicleId, v));
+    const itemVeh = vehicles.find(v => isItemForVehicle(itemVehicleId, v));
+
+    if (targetVeh && itemVeh && (targetVeh === itemVeh || normalizePlateNumber(targetVeh.number) === normalizePlateNumber(itemVeh.number))) {
+        return true;
+    }
+    if (targetVeh && isItemForVehicle(itemVehicleId, targetVeh)) return true;
+    if (itemVeh && isItemForVehicle(targetVehicleId, itemVeh)) return true;
+
+    return false;
+}
+
+function getVehicleById(id) {
+    if (!id) return null;
+    const vehicles = getVehicles();
+    return vehicles.find(v => isItemForVehicle(id, v)) || null;
+}
+
 function getVehicleUUID(vehicleIdOrNumber) {
     if (!vehicleIdOrNumber) return null;
     if (isValidUUID(vehicleIdOrNumber)) return vehicleIdOrNumber;
-    const targetNumber = LEGACY_VEHICLE_NUMBERS[vehicleIdOrNumber] || vehicleIdOrNumber;
     const vehicles = getVehicles();
-    const v = vehicles.find(veh => veh.id === vehicleIdOrNumber || veh.number === targetNumber || veh.number === vehicleIdOrNumber);
+    const v = vehicles.find(veh => isItemForVehicle(vehicleIdOrNumber, veh));
     if (!v) return null;
     if (v.id && isValidUUID(v.id)) return v.id;
     if (v.uuid && isValidUUID(v.uuid)) return v.uuid;
@@ -658,8 +704,17 @@ function navigateTo(page) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
 
     // Refresh data
-    if (page === 'dashboard') renderDashboard();
-    if (page === 'reports') renderReports();
+    if (page === 'dashboard') {
+        renderDashboard();
+    } else if (page === 'reports') {
+        renderReports();
+    } else if (page === 'vehicles') {
+        if (typeof renderVehicles === 'function') renderVehicles();
+    } else if (page === 'billing') {
+        if (typeof renderBills === 'function') renderBills();
+    } else if (page === 'fuel') {
+        if (typeof renderFuelLogs === 'function') renderFuelLogs();
+    }
 }
 
 // ===== SIDEBAR =====
@@ -745,7 +800,7 @@ function closeQuickAdd() {
 // ===== VEHICLE DROPDOWNS =====
 function populateVehicleDropdowns() {
     const vehicles = getVehicles();
-    const selectors = ['billVehicle', 'fuelVehicle', 'billVehicleFilter', 'fuelVehicleFilter', 'dsVehicle'];
+    const selectors = ['billVehicle', 'fuelVehicle', 'billVehicleFilter', 'fuelVehicleFilter', 'dsVehicle', 'serviceVehicle'];
     selectors.forEach(id => {
         const select = document.getElementById(id);
         if (!select) return;
@@ -833,10 +888,12 @@ function renderDashboard() {
     const totalFuelCostEl = document.getElementById('totalFuelCost');
     if (totalFuelCostEl) totalFuelCostEl.textContent = formatCurrency(fuelCost);
 
-    // Net Profit: Revenue - Fuel Cost - Driver Salaries
+    // Net Profit: Revenue - Fuel Cost - Driver Salaries - Vehicle Service Expenses
     const salaryCost = salaries.reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0);
     const legacyBillSalaries = bills.reduce((sum, b) => (b.addToDriverSalary && b.driverSalaryAmount) ? sum + (parseFloat(b.driverSalaryAmount) || 0) : sum, 0);
-    const totalExpenses = fuelCost + salaryCost + legacyBillSalaries;
+    const services = typeof getVehicleServices === 'function' ? getVehicleServices() : [];
+    const serviceCost = services.reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0);
+    const totalExpenses = fuelCost + salaryCost + legacyBillSalaries + serviceCost;
     const netProfit = revenue - totalExpenses;
     const margin = revenue > 0 ? ((netProfit / revenue) * 100).toFixed(1) : '0.0';
 
@@ -975,15 +1032,27 @@ function renderVehicles() {
     const vehicles = getVehicles();
     const bills = getBills();
     const fuel = getFuelLogs();
+    const services = typeof getVehicleServices === 'function' ? getVehicleServices() : [];
+    const salaries = typeof getDriverSalaries === 'function' ? getDriverSalaries() : [];
     const container = document.getElementById('vehicleGrid');
 
     container.innerHTML = vehicles.map(v => {
         const vBills = bills.filter(b => b.vehicleId === v.id);
         const vFuel = fuel.filter(f => f.vehicleId === v.id);
+        const vServices = services.filter(s => s.vehicleId === v.id);
+        const vSalaries = salaries.filter(s => s.vehicleId === v.id);
+
         const earnings = vBills.reduce((s, b) => s + (parseFloat(b.grandTotal) || 0), 0);
         const fuelCost = vFuel.reduce((s, f) => s + (parseFloat(f.totalAmount) || 0), 0);
+        const serviceCost = vServices.reduce((s, item) => s + (parseFloat(item.amount) || 0), 0);
         const totalLitres = vFuel.reduce((s, f) => s + (parseFloat(f.litres) || 0), 0);
-        const lastOdometer = vFuel.length > 0 ? vFuel.sort((a, b) => new Date(b.date) - new Date(a.date))[0].odometer || '-' : '-';
+
+        const legacySalary = vBills.reduce((s, b) => (b.addToDriverSalary && b.driverSalaryAmount) ? s + (parseFloat(b.driverSalaryAmount) || 0) : s, 0);
+        const directSalary = vSalaries.reduce((s, item) => s + (parseFloat(item.amount) || 0), 0);
+        const driverSalary = legacySalary + directSalary;
+
+        const totalExpenses = fuelCost + driverSalary + serviceCost;
+        const vNetProfit = earnings - totalExpenses;
 
         return `
         <div class="vehicle-card">
@@ -1002,7 +1071,7 @@ function renderVehicles() {
                     <span class="v-value">${vBills.length}</span>
                 </div>
                 <div class="vehicle-stat-item">
-                    <span class="v-label">Revenue</span>
+                    <span class="v-label">Gross Revenue</span>
                     <span class="v-value" style="color:var(--green);">${formatCurrency(earnings)}</span>
                 </div>
                 <div class="vehicle-stat-item">
@@ -1013,15 +1082,29 @@ function renderVehicles() {
                     <span class="v-label">Fuel Used</span>
                     <span class="v-value">${totalLitres.toFixed(1)}L</span>
                 </div>
+                <div class="vehicle-stat-item" style="border:1px solid rgba(239,82,38,0.25);background:rgba(239,82,38,0.06);">
+                    <span class="v-label" style="color:var(--orange);">Service Expense</span>
+                    <span class="v-value" style="color:var(--orange);">${formatCurrency(serviceCost)}</span>
+                </div>
+                <div class="vehicle-stat-item">
+                    <span class="v-label">Net Profit</span>
+                    <span class="v-value" style="color:${vNetProfit >= 0 ? 'var(--green)' : 'var(--red)'};">${formatCurrency(vNetProfit)}</span>
+                </div>
             </div>
-            <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
-                <span style="font-size:12px;color:var(--text-muted);display:flex;align-items:center;gap:6px;">
-                    <span class="live-blink" style="background:#10B981;width:7px;height:7px;border-radius:50%;display:inline-block;"></span> GPS Telematics
-                </span>
-                <a href="https://app.fleetocity.co.in" target="_blank" rel="noopener noreferrer" class="vehicle-gps-action-btn">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a8 8 0 0 0-8 8c0 5.25 8 12 8 12s8-6.75 8-12a8 8 0 0 0-8-8z"/><circle cx="12" cy="10" r="3"/></svg>
-                    Live GPS View
-                </a>
+            <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+                <button type="button" class="vehicle-service-action-btn" onclick="openVehicleServiceModal(null, '${v.id}')" title="Log service expense for ${v.number}">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+                    + Service Expense
+                </button>
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <span style="font-size:12px;color:var(--text-muted);display:flex;align-items:center;gap:6px;">
+                        <span class="live-blink" style="background:#10B981;width:7px;height:7px;border-radius:50%;display:inline-block;"></span> GPS
+                    </span>
+                    <a href="https://app.fleetocity.co.in" target="_blank" rel="noopener noreferrer" class="vehicle-gps-action-btn">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a8 8 0 0 0-8 8c0 5.25 8 12 8 12s8-6.75 8-12a8 8 0 0 0-8-8z"/><circle cx="12" cy="10" r="3"/></svg>
+                        Live GPS
+                    </a>
+                </div>
             </div>
         </div>`;
     }).join('');
@@ -1360,6 +1443,188 @@ function setDriverSalaryAmount(amount) { setDsAmount(amount); }
 window.setDriverSalaryAmount = setDriverSalaryAmount;
 function setDriverSalaryStatus(status) { setDsStatus(status); }
 window.setDriverSalaryStatus = setDriverSalaryStatus;
+
+// ===================================================
+// VEHICLE SERVICE EXPENSES STORE & MANAGEMENT
+// ===================================================
+function openVehicleServiceModal(serviceId, prefillVehicleId) {
+    const modal = document.getElementById('vehicleServiceModal');
+    if (!modal) return;
+
+    // Ensure vehicle dropdown is populated
+    const vSelect = document.getElementById('serviceVehicle');
+    if (vSelect && (!vSelect.options || vSelect.options.length <= 1)) {
+        const vehicles = getVehicles();
+        vSelect.innerHTML = '<option value="">Select Vehicle</option>' + 
+            vehicles.map(v => `<option value="${v.id}">${v.name} (${v.number})</option>`).join('');
+    }
+
+    if (serviceId) {
+        const services = getVehicleServices();
+        const item = services.find(s => s.id === serviceId);
+        if (item) {
+            document.getElementById('vehicleServiceModalTitle').textContent = 'Edit Vehicle Service Expense';
+            document.getElementById('serviceId').value = item.id;
+            document.getElementById('serviceDate').value = item.date || new Date().toISOString().split('T')[0];
+            document.getElementById('serviceVehicle').value = item.vehicleId || '';
+            document.getElementById('serviceType').value = item.serviceType || 'General Service';
+            document.getElementById('serviceAmount').value = item.amount || '';
+            document.getElementById('serviceGarage').value = item.garage || '';
+            document.getElementById('serviceOdometer').value = item.odometer || '';
+            document.getElementById('serviceNotes').value = item.notes || '';
+            const delBtn = document.getElementById('serviceDeleteBtn');
+            if (delBtn) delBtn.style.display = 'inline-flex';
+            modal.classList.add('show');
+            return;
+        }
+    }
+
+    // New Service entry
+    document.getElementById('vehicleServiceModalTitle').textContent = 'Add Vehicle Service Expense';
+    document.getElementById('serviceId').value = '';
+    document.getElementById('serviceDate').value = new Date().toISOString().split('T')[0];
+    if (prefillVehicleId) {
+        document.getElementById('serviceVehicle').value = prefillVehicleId;
+    } else {
+        document.getElementById('serviceVehicle').value = '';
+    }
+    document.getElementById('serviceType').value = 'General Service';
+    document.getElementById('serviceAmount').value = '';
+    document.getElementById('serviceGarage').value = '';
+    document.getElementById('serviceOdometer').value = '';
+    document.getElementById('serviceNotes').value = '';
+    const delBtn = document.getElementById('serviceDeleteBtn');
+    if (delBtn) delBtn.style.display = 'none';
+
+    modal.classList.add('show');
+}
+window.openVehicleServiceModal = openVehicleServiceModal;
+
+function closeVehicleServiceModal() {
+    const modal = document.getElementById('vehicleServiceModal');
+    if (modal) modal.classList.remove('show');
+}
+window.closeVehicleServiceModal = closeVehicleServiceModal;
+
+function saveVehicleService(event) {
+    if (event) event.preventDefault();
+    const id = document.getElementById('serviceId').value;
+    const date = document.getElementById('serviceDate').value;
+    const vehicleId = document.getElementById('serviceVehicle').value;
+    const serviceType = document.getElementById('serviceType').value;
+    const amount = parseFloat(document.getElementById('serviceAmount').value) || 0;
+    const garage = (document.getElementById('serviceGarage').value || '').trim();
+    const odometer = document.getElementById('serviceOdometer').value ? parseFloat(document.getElementById('serviceOdometer').value) : null;
+    const notes = (document.getElementById('serviceNotes').value || '').trim();
+
+    if (!vehicleId) {
+        showToast('Please select a fleet vehicle', 'warning');
+        return;
+    }
+    if (amount <= 0) {
+        showToast('Please enter a valid service price / amount', 'warning');
+        return;
+    }
+
+    const services = getVehicleServices();
+    const serviceData = {
+        date,
+        vehicleId,
+        serviceType,
+        amount,
+        garage,
+        odometer,
+        notes,
+        updatedAt: new Date().toISOString()
+    };
+
+    const targetId = id || generateUUID();
+    serviceData.id = targetId;
+
+    if (id) {
+        const index = services.findIndex(s => s.id === id);
+        if (index !== -1) {
+            services[index] = { ...services[index], ...serviceData };
+        }
+        showToast('Service expense record updated! ✅', 'success');
+    } else {
+        serviceData.createdAt = new Date().toISOString();
+        services.push(serviceData);
+        const v = getVehicleById(vehicleId);
+        addNotification(`Service expense: ${formatCurrency(amount)} for ${v ? getVehicleDisplay(v) : 'vehicle'} (${serviceType})`);
+        showToast(`Service expense saved: ${formatCurrency(amount)} for ${v ? v.number : 'vehicle'}! 🛠️`, 'success');
+    }
+
+    saveVehicleServices(services);
+
+    if (isSupabaseConnected && supabaseClient) {
+        uploadVehicleServiceToSupabase(serviceData);
+        persistFleetToSupabase();
+    }
+
+    const submitBtn = (event && event.target) ? event.target.querySelector('button[type="submit"]') : document.querySelector('#vehicleServiceForm button[type="submit"]');
+    animateButtonSuccess(submitBtn, '✓ Saved Successfully!', () => {
+        closeVehicleServiceModal();
+        renderVehicles();
+        renderDashboard();
+        renderReports();
+    });
+}
+window.saveVehicleService = saveVehicleService;
+
+function deleteCurrentVehicleService() {
+    const id = document.getElementById('serviceId').value;
+    if (!id) return;
+    if (!confirm('Are you sure you want to delete this vehicle service record?')) return;
+
+    let services = getVehicleServices();
+    services = services.filter(s => s.id !== id);
+    saveVehicleServices(services);
+
+    if (isSupabaseConnected && supabaseClient) {
+        deleteVehicleServiceFromSupabase(id);
+        persistFleetToSupabase();
+    }
+
+    closeVehicleServiceModal();
+    renderVehicles();
+    renderDashboard();
+    renderReports();
+    showToast('Vehicle service expense deleted 🗑️', 'info');
+}
+window.deleteCurrentVehicleService = deleteCurrentVehicleService;
+
+function mapVehicleServiceToSupabase(s) {
+    return {
+        id: s.id,
+        date: s.date,
+        vehicle_id: s.vehicleId || null,
+        service_type: s.serviceType || 'General Service',
+        amount: parseFloat(s.amount) || 0,
+        garage: s.garage || null,
+        odometer: s.odometer ? parseFloat(s.odometer) : null,
+        notes: s.notes || null,
+        updated_at: s.updatedAt || new Date().toISOString()
+    };
+}
+window.mapVehicleServiceToSupabase = mapVehicleServiceToSupabase;
+
+function mapVehicleServiceFromSupabase(row) {
+    return {
+        id: row.id,
+        date: row.date,
+        vehicleId: row.vehicle_id,
+        serviceType: row.service_type || 'General Service',
+        amount: parseFloat(row.amount) || 0,
+        garage: row.garage || '',
+        odometer: row.odometer,
+        notes: row.notes || '',
+        createdAt: row.created_at,
+        updatedAt: row.updated_at
+    };
+}
+window.mapVehicleServiceFromSupabase = mapVehicleServiceFromSupabase;
+
 
 function updateLocalTripUI(isLocal) {
     const custRow = document.getElementById('billCustomerDetailsRow');
@@ -2895,16 +3160,20 @@ function switchReportTxnTab(tab) {
     const pillBills = document.getElementById('pillShowBills');
     const pillFuel = document.getElementById('pillShowFuel');
     const pillSalary = document.getElementById('pillShowSalary');
+    const pillService = document.getElementById('pillShowService');
     const billsSec = document.getElementById('reportBillsSection');
     const fuelSec = document.getElementById('reportFuelSection');
     const salarySec = document.getElementById('reportSalarySection');
+    const serviceSec = document.getElementById('reportServiceSection');
 
     if (pillBills) pillBills.classList.toggle('active', tab === 'bills');
     if (pillFuel) pillFuel.classList.toggle('active', tab === 'fuel');
     if (pillSalary) pillSalary.classList.toggle('active', tab === 'salary');
+    if (pillService) pillService.classList.toggle('active', tab === 'service');
     if (billsSec) billsSec.style.display = tab === 'bills' ? 'flex' : 'none';
     if (fuelSec) fuelSec.style.display = tab === 'fuel' ? 'flex' : 'none';
     if (salarySec) salarySec.style.display = tab === 'salary' ? 'flex' : 'none';
+    if (serviceSec) serviceSec.style.display = tab === 'service' ? 'flex' : 'none';
 }
 
 function populateReportVehicleFilter() {
@@ -2945,22 +3214,30 @@ function renderReports() {
         });
     }
 
-    // Filter by vehicle
+    // Filter salaries by period
     let periodSalaries = getDriverSalaries();
     if (reportState.period !== 'all_time') {
-        const start = new Date(dateRange.start);
-        const end = new Date(dateRange.end);
-        end.setHours(23, 59, 59, 999);
         periodSalaries = periodSalaries.filter(s => {
-            const d = new Date(s.date);
-            return d >= start && d <= end;
+            const d = (s.date || '').split('T')[0];
+            return d >= dateRange.startISO && d <= dateRange.endISO;
         });
     }
 
+    // Filter services by period
+    let periodServices = typeof getVehicleServices === 'function' ? getVehicleServices() : [];
+    if (reportState.period !== 'all_time') {
+        periodServices = periodServices.filter(s => {
+            const d = (s.date || '').split('T')[0];
+            return d >= dateRange.startISO && d <= dateRange.endISO;
+        });
+    }
+
+    // Filter by vehicle
     if (reportState.vehicleId !== 'all') {
-        periodBills = periodBills.filter(b => b.vehicleId === reportState.vehicleId);
-        periodFuel = periodFuel.filter(f => f.vehicleId === reportState.vehicleId);
-        periodSalaries = periodSalaries.filter(s => !s.vehicleId || s.vehicleId === reportState.vehicleId);
+        periodBills = periodBills.filter(b => isVehicleMatch(b.vehicleId, reportState.vehicleId));
+        periodFuel = periodFuel.filter(f => isVehicleMatch(f.vehicleId, reportState.vehicleId));
+        periodSalaries = periodSalaries.filter(s => !s.vehicleId || isVehicleMatch(s.vehicleId, reportState.vehicleId));
+        periodServices = periodServices.filter(s => !s.vehicleId || isVehicleMatch(s.vehicleId, reportState.vehicleId));
     }
 
     // Update Counts & Tags
@@ -2977,20 +3254,21 @@ function renderReports() {
         pnlTag.textContent = periodNames[reportState.period] || 'Selected Period';
     }
 
-    renderPeriodKPIs(periodBills, periodFuel, vehicles, periodSalaries);
+    renderPeriodKPIs(periodBills, periodFuel, vehicles, periodSalaries, periodServices);
     renderRevenueChart(periodBills, dateRange, reportState.period);
     renderFuelChart(periodFuel, dateRange, reportState.period);
     renderVehicleChart(vehicles, periodBills, periodFuel);
-    renderPnLTable(vehicles, periodBills, periodFuel, periodSalaries);
-    renderPeriodTxnList(periodBills, periodFuel, periodSalaries);
+    renderPnLTable(vehicles, periodBills, periodFuel, periodSalaries, periodServices);
+    renderPeriodTxnList(periodBills, periodFuel, periodSalaries, periodServices);
 }
 
 // ===== EXECUTIVE KPIS =====
-function renderPeriodKPIs(bills, fuel, vehicles, salaries) {
+function renderPeriodKPIs(bills, fuel, vehicles, salaries, services) {
     const container = document.getElementById('reportKpiRow');
     if (!container) return;
 
     if (!salaries) salaries = getDriverSalaries();
+    if (!services) services = typeof getVehicleServices === 'function' ? getVehicleServices() : [];
 
     const stdBills = bills.filter(b => !b.isLocalIncome && b.tripType !== 'local');
     const localBills = bills.filter(b => b.isLocalIncome === true || b.tripType === 'local');
@@ -3010,7 +3288,10 @@ function renderPeriodKPIs(bills, fuel, vehicles, salaries) {
     const totalDriverSalary = legacySalaryTotal + directSalaryTotal;
     const totalSalaryCount = salaryBills.length + (salaries || []).length;
 
-    const totalOperatingExpenses = totalFuelCost + totalDriverSalary;
+    const totalServiceCost = (services || []).reduce((s, item) => s + (parseFloat(item.amount) || 0), 0);
+    const totalServiceCount = (services || []).length;
+
+    const totalOperatingExpenses = totalFuelCost + totalDriverSalary + totalServiceCost;
     const netProfit = totalRevenue - totalOperatingExpenses;
     const margin = totalRevenue > 0 ? ((netProfit / totalRevenue) * 100).toFixed(1) : '0.0';
     const totalPending = bills.reduce((s, b) => s + (parseFloat(b.balance) || 0), 0);
@@ -3018,7 +3299,7 @@ function renderPeriodKPIs(bills, fuel, vehicles, salaries) {
     // Mileage calculation
     let totalKm = 0;
     vehicles.forEach(v => {
-        const vFuel = fuel.filter(f => f.vehicleId === v.id && f.odometer > 0)
+        const vFuel = fuel.filter(f => isItemForVehicle(f.vehicleId, v) && f.odometer > 0)
                           .sort((a, b) => parseFloat(a.odometer) - parseFloat(b.odometer));
         if (vFuel.length >= 2) {
             totalKm += (parseFloat(vFuel[vFuel.length - 1].odometer) - parseFloat(vFuel[0].odometer));
@@ -3072,6 +3353,17 @@ function renderPeriodKPIs(bills, fuel, vehicles, salaries) {
         </div>
 
         <div class="report-kpi-card">
+            <div class="report-kpi-icon orange" style="background:rgba(239,82,38,0.15);color:var(--orange);">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+            </div>
+            <div class="report-kpi-content">
+                <div class="report-kpi-title">Service & Repairs</div>
+                <div class="report-kpi-val" style="color:var(--orange);">${formatCurrency(totalServiceCost)}</div>
+                <div class="report-kpi-sub">${totalServiceCount} Maintenance log${totalServiceCount === 1 ? '' : 's'}</div>
+            </div>
+        </div>
+
+        <div class="report-kpi-card">
             <div class="report-kpi-icon ${netProfit >= 0 ? 'green' : 'red'}">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
             </div>
@@ -3079,6 +3371,17 @@ function renderPeriodKPIs(bills, fuel, vehicles, salaries) {
                 <div class="report-kpi-title">${netProfit >= 0 ? 'Net Profit' : 'Net Loss'}</div>
                 <div class="report-kpi-val" style="color:${netProfit >= 0 ? 'var(--green)' : 'var(--red)'};">${formatCurrency(netProfit)}</div>
                 <span class="report-kpi-badge ${netProfit >= 0 ? 'profit' : 'loss'}">${netProfit >= 0 ? '+' : ''}${margin}% Margin</span>
+            </div>
+        </div>
+
+        <div class="report-kpi-card">
+            <div class="report-kpi-icon" style="background:rgba(16, 185, 129, 0.12);color:var(--green);">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            </div>
+            <div class="report-kpi-content">
+                <div class="report-kpi-title">Fleet Efficiency</div>
+                <div class="report-kpi-val" style="color:var(--green);">${avgMileage}</div>
+                <div class="report-kpi-sub">${totalKm > 0 ? `${totalKm.toFixed(0)} km recorded` : 'Fleet consumption'}</div>
             </div>
         </div>
 
@@ -3291,8 +3594,8 @@ function renderVehicleChart(vehicles, bills, fuel) {
     const totalFleetRev = bills.reduce((s, b) => s + (parseFloat(b.grandTotal) || 0), 0);
 
     const earnings = vehicles.map(v => {
-        const amount = bills.filter(b => b.vehicleId === v.id).reduce((s, b) => s + (parseFloat(b.grandTotal) || 0), 0);
-        const fuelAmt = fuel.filter(f => f.vehicleId === v.id).reduce((s, f) => s + (parseFloat(f.totalAmount) || 0), 0);
+        const amount = bills.filter(b => isItemForVehicle(b.vehicleId, v)).reduce((s, b) => s + (parseFloat(b.grandTotal) || 0), 0);
+        const fuelAmt = fuel.filter(f => isItemForVehicle(f.vehicleId, v)).reduce((s, f) => s + (parseFloat(f.totalAmount) || 0), 0);
         const share = totalFleetRev > 0 ? ((amount / totalFleetRev) * 100).toFixed(1) : 0;
         return { vehicle: v, amount, fuelAmt, share };
     });
@@ -3318,11 +3621,19 @@ function renderVehicleChart(vehicles, bills, fuel) {
 }
 
 // ===== PERIOD P&L TABLE =====
-function renderPnLTable(vehicles, bills, fuel, salaries) {
+function renderPnLTable(vehicles, bills, fuel, salaries, services) {
     const container = document.getElementById('pnlTable');
     if (!container) return;
 
     if (!salaries) salaries = getDriverSalaries();
+    if (!services) services = typeof getVehicleServices === 'function' ? getVehicleServices() : [];
+
+    let targetVehicles = vehicles;
+    const isSingleVehicle = reportState.vehicleId && reportState.vehicleId !== 'all';
+    if (isSingleVehicle) {
+        targetVehicles = vehicles.filter(v => isItemForVehicle(reportState.vehicleId, v) || isVehicleMatch(v.id, reportState.vehicleId));
+        if (targetVehicles.length === 0) targetVehicles = vehicles;
+    }
 
     let totalBillsCount = 0;
     let totalStdCount = 0;
@@ -3332,11 +3643,13 @@ function renderPnLTable(vehicles, bills, fuel, salaries) {
     let totalLitres = 0;
     let totalFuel = 0;
     let totalDriverSalary = 0;
+    let totalServiceExpense = 0;
 
-    let tableRows = vehicles.map(v => {
-        const vBills = bills.filter(b => b.vehicleId === v.id);
-        const vFuel = fuel.filter(f => f.vehicleId === v.id);
-        const vSalaries = (salaries || []).filter(s => s.vehicleId === v.id);
+    let tableRows = targetVehicles.map(v => {
+        const vBills = bills.filter(b => isItemForVehicle(b.vehicleId, v));
+        const vFuel = fuel.filter(f => isItemForVehicle(f.vehicleId, v));
+        const vSalaries = (salaries || []).filter(s => isItemForVehicle(s.vehicleId, v));
+        const vServices = (services || []).filter(s => isItemForVehicle(s.vehicleId, v));
 
         const vStd = vBills.filter(b => !b.isLocalIncome && b.tripType !== 'local');
         const vLocal = vBills.filter(b => b.isLocalIncome === true || b.tripType === 'local');
@@ -3345,6 +3658,7 @@ function renderPnLTable(vehicles, bills, fuel, salaries) {
         const localRev = vLocal.reduce((s, b) => s + (parseFloat(b.grandTotal) || 0), 0);
         const fuelCost = vFuel.reduce((s, f) => s + (parseFloat(f.totalAmount) || 0), 0);
         const litres = vFuel.reduce((s, f) => s + (parseFloat(f.litres) || 0), 0);
+        const serviceCost = vServices.reduce((s, item) => s + (parseFloat(item.amount) || 0), 0);
 
         const legacySalary = vBills.reduce((s, b) => {
             if (b.addToDriverSalary) {
@@ -3356,7 +3670,7 @@ function renderPnLTable(vehicles, bills, fuel, salaries) {
         const directSalary = vSalaries.reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0);
         const driverSalary = legacySalary + directSalary;
 
-        const totalExpenses = fuelCost + driverSalary;
+        const totalExpenses = fuelCost + driverSalary + serviceCost;
         const profit = revenue - totalExpenses;
         const margin = revenue > 0 ? ((profit / revenue) * 100).toFixed(1) + '%' : '0.0%';
 
@@ -3368,6 +3682,7 @@ function renderPnLTable(vehicles, bills, fuel, salaries) {
         totalLitres += litres;
         totalFuel += fuelCost;
         totalDriverSalary += driverSalary;
+        totalServiceExpense += serviceCost;
 
         return `
             <tr>
@@ -3389,6 +3704,9 @@ function renderPnLTable(vehicles, bills, fuel, salaries) {
                 <td style="color:#0ea5e9;font-weight:600;">
                     ${driverSalary > 0 ? formatCurrency(driverSalary) : '—'}
                 </td>
+                <td style="color:var(--orange);font-weight:600;">
+                    ${serviceCost > 0 ? formatCurrency(serviceCost) : '—'}
+                </td>
                 <td style="color:var(--text-secondary);font-weight:600;">
                     ${formatCurrency(totalExpenses)}
                 </td>
@@ -3397,14 +3715,20 @@ function renderPnLTable(vehicles, bills, fuel, salaries) {
             </tr>`;
     }).join('');
 
-    // General / unassigned fleet salaries
-    const generalSalaries = (salaries || []).filter(s => !s.vehicleId || !vehicles.some(v => v.id === s.vehicleId));
-    const generalSalaryTotal = generalSalaries.reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0);
-    totalDriverSalary += generalSalaryTotal;
+    // General / unassigned fleet salaries (only in fleet total if not single vehicle)
+    if (!isSingleVehicle) {
+        const generalSalaries = (salaries || []).filter(s => !s.vehicleId || !vehicles.some(v => isItemForVehicle(s.vehicleId, v)));
+        const generalSalaryTotal = generalSalaries.reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0);
+        totalDriverSalary += generalSalaryTotal;
+    }
 
-    const totalFleetExpenses = totalFuel + totalDriverSalary;
+    const totalFleetExpenses = totalFuel + totalDriverSalary + totalServiceExpense;
     const totalProfit = totalRevenue - totalFleetExpenses;
     const totalMargin = totalRevenue > 0 ? ((totalProfit / totalRevenue) * 100).toFixed(1) + '%' : '0.0%';
+
+    const totalTitle = isSingleVehicle 
+        ? `SUBTOTAL (${targetVehicles[0]?.name || ''} ${targetVehicles[0]?.number || ''})` 
+        : 'TOTAL FLEET';
 
     container.innerHTML = `
     <table>
@@ -3415,6 +3739,7 @@ function renderPnLTable(vehicles, bills, fuel, salaries) {
                 <th>Gross Revenue</th>
                 <th>Fuel Cost</th>
                 <th>Driver Salary</th>
+                <th style="color:var(--orange);">Service Expense</th>
                 <th>Total Expenses</th>
                 <th>Net Profit / Loss</th>
                 <th>Margin %</th>
@@ -3423,7 +3748,7 @@ function renderPnLTable(vehicles, bills, fuel, salaries) {
         <tbody>
             ${tableRows}
             <tr style="font-weight:800;border-top:2px solid var(--border);background:var(--bg-surface);">
-                <td>TOTAL FLEET</td>
+                <td>${totalTitle}</td>
                 <td style="text-align:center;">
                     ${totalBillsCount}
                     <div style="font-size:10px;color:var(--text-muted);margin-top:2px;">
@@ -3439,6 +3764,7 @@ function renderPnLTable(vehicles, bills, fuel, salaries) {
                     <div style="font-size:10px;color:var(--text-muted);">${totalLitres.toFixed(1)} L</div>
                 </td>
                 <td style="color:#0ea5e9;">${formatCurrency(totalDriverSalary)}</td>
+                <td style="color:var(--orange);font-weight:700;">${formatCurrency(totalServiceExpense)}</td>
                 <td style="color:var(--text-secondary);">${formatCurrency(totalFleetExpenses)}</td>
                 <td class="${totalProfit >= 0 ? 'profit' : 'loss'}">${formatCurrency(totalProfit)}</td>
                 <td style="color:${totalProfit >= 0 ? 'var(--green)' : 'var(--red)'};">${totalProfit >= 0 ? '+' : ''}${totalMargin}</td>
@@ -3448,17 +3774,41 @@ function renderPnLTable(vehicles, bills, fuel, salaries) {
 }
 
 // ===== PERIOD TRANSACTION DRILLDOWN LIST =====
-function renderPeriodTxnList(bills, fuel, salaries) {
-    if (!bills) bills = getBills();
+function renderPeriodTxnList(bills, fuel, salaries, services) {
+    if (!bills) {
+        const dateRange = getReportDateRange(reportState.period);
+        let b = getBills();
+        let f = getFuelLogs();
+        let s = getDriverSalaries();
+        let srv = typeof getVehicleServices === 'function' ? getVehicleServices() : [];
+        if (reportState.period !== 'all_time') {
+            b = b.filter(item => { const d = (item.date || '').split('T')[0]; return d >= dateRange.startISO && d <= dateRange.endISO; });
+            f = f.filter(item => { const d = (item.date || '').split('T')[0]; return d >= dateRange.startISO && d <= dateRange.endISO; });
+            s = s.filter(item => { const d = (item.date || '').split('T')[0]; return d >= dateRange.startISO && d <= dateRange.endISO; });
+            srv = srv.filter(item => { const d = (item.date || '').split('T')[0]; return d >= dateRange.startISO && d <= dateRange.endISO; });
+        }
+        if (reportState.vehicleId !== 'all') {
+            b = b.filter(item => isVehicleMatch(item.vehicleId, reportState.vehicleId));
+            f = f.filter(item => isVehicleMatch(item.vehicleId, reportState.vehicleId));
+            s = s.filter(item => !item.vehicleId || isVehicleMatch(item.vehicleId, reportState.vehicleId));
+            srv = srv.filter(item => !item.vehicleId || isVehicleMatch(item.vehicleId, reportState.vehicleId));
+        }
+        bills = b; fuel = f; salaries = s; services = srv;
+    }
     if (!fuel) fuel = getFuelLogs();
     if (!salaries) salaries = getDriverSalaries();
+    if (!services) services = typeof getVehicleServices === 'function' ? getVehicleServices() : [];
+
+    switchReportTxnTab(reportState.txnTab || 'bills');
 
     const billsSec = document.getElementById('reportBillsSection');
     const fuelSec = document.getElementById('reportFuelSection');
     const salarySec = document.getElementById('reportSalarySection');
+    const serviceSec = document.getElementById('reportServiceSection');
     const bCount = document.getElementById('periodBillsCount');
     const fCount = document.getElementById('periodFuelCount');
     const sCount = document.getElementById('periodSalaryCount');
+    const srvCount = document.getElementById('periodServiceCount');
 
     // Build unified salary list: direct driver salary payouts + any legacy bill-linked salaries
     const legacySalaryBills = bills.filter(b => b.addToDriverSalary === true);
@@ -3489,6 +3839,7 @@ function renderPeriodTxnList(bills, fuel, salaries) {
     if (bCount) bCount.textContent = bills.length;
     if (fCount) fCount.textContent = fuel.length;
     if (sCount) sCount.textContent = combinedSalaries.length;
+    if (srvCount) srvCount.textContent = services.length;
 
     if (billsSec) {
         if (bills.length === 0) {
@@ -3687,6 +4038,76 @@ function renderPeriodTxnList(bills, fuel, salaries) {
             salarySec.innerHTML = html;
         }
     }
+
+    if (serviceSec) {
+        if (services.length === 0) {
+            serviceSec.innerHTML = `
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+                    <div style="font-size:12px;color:var(--text-muted);font-weight:600;">
+                        <span>Vehicle Service & Maintenance Expenses</span>
+                    </div>
+                    <button type="button" class="btn-primary-app btn-sm" onclick="openVehicleServiceModal()" style="font-size:11px;padding:5px 12px;">
+                        + Add Service Expense
+                    </button>
+                </div>
+                <div class="empty-state" style="padding:24px 20px;text-align:center;color:var(--text-muted);">
+                    <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="margin-bottom:8px;opacity:0.6;"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+                    <p style="margin:0 0 12px 0;">No vehicle service or maintenance records found for this period</p>
+                    <button type="button" class="btn-primary-app btn-sm" onclick="openVehicleServiceModal()">
+                        + Add Service Expense
+                    </button>
+                </div>`;
+        } else {
+            const sortedServices = [...services].sort((a, b) => new Date(b.date) - new Date(a.date));
+            const totalServiceAmount = sortedServices.reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0);
+
+            let html = `
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+                    <div style="font-size:12px;color:var(--text-muted);font-weight:600;">
+                        <span>Vehicle Service & Maintenance Ledger (${sortedServices.length} records • Total: <strong style="color:var(--orange);">${formatCurrency(totalServiceAmount)}</strong>)</span>
+                    </div>
+                    <button type="button" class="btn-primary-app btn-sm" onclick="openVehicleServiceModal()" style="font-size:11px;padding:5px 12px;">
+                        + Add Service Expense
+                    </button>
+                </div>
+            `;
+
+            html += sortedServices.map(s => {
+                const v = getVehicleById(s.vehicleId);
+                return `
+                    <div class="service-card-item">
+                        <div class="service-card-left">
+                            <div class="service-card-icon">🛠️</div>
+                            <div class="service-card-details">
+                                <div class="service-card-title">
+                                    <span>${s.serviceType || 'General Service'}</span>
+                                    <span class="service-tag">${v ? v.number : 'Fleet'}</span>
+                                    ${v ? `<span style="font-size:11px;color:var(--text-muted);font-weight:600;">${v.name}</span>` : ''}
+                                </div>
+                                <div class="service-card-meta">
+                                    <span>📅 ${formatDate(s.date)}</span>
+                                    ${s.garage ? `<span>🏬 ${s.garage}</span>` : ''}
+                                    ${s.odometer ? `<span>📍 ${Number(s.odometer).toLocaleString('en-IN')} km</span>` : ''}
+                                    ${s.notes ? `<span>📝 ${s.notes}</span>` : ''}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="service-card-right">
+                            <div class="service-card-price">${formatCurrency(s.amount)}</div>
+                            <div class="service-card-date">${formatDate(s.date)}</div>
+                            <div class="service-card-actions" style="margin-top:6px;justify-content:flex-end;">
+                                <button type="button" class="btn-secondary-app sm" onclick="openVehicleServiceModal('${s.id}')" style="padding:2px 8px;font-size:11px;" title="Edit Service Record">
+                                    ✏️ Edit
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            serviceSec.innerHTML = html;
+        }
+    }
 }
 
 // Salary filter state & toggle functions
@@ -3730,10 +4151,15 @@ function exportPeriodReportCsv() {
     const dateRange = getReportDateRange(reportState.period);
     const allBills = getBills();
     const allFuel = getFuelLogs();
+    const allServices = typeof getVehicleServices === 'function' ? getVehicleServices() : [];
+    const allSalaries = getDriverSalaries();
     const vehicles = getVehicles();
 
     let bills = allBills;
     let fuel = allFuel;
+    let services = allServices;
+    let salaries = allSalaries;
+
     if (reportState.period !== 'all_time') {
         bills = allBills.filter(b => {
             const d = (b.date || '').split('T')[0];
@@ -3743,11 +4169,21 @@ function exportPeriodReportCsv() {
             const d = (f.date || '').split('T')[0];
             return d >= dateRange.startISO && d <= dateRange.endISO;
         });
+        services = allServices.filter(s => {
+            const d = (s.date || '').split('T')[0];
+            return d >= dateRange.startISO && d <= dateRange.endISO;
+        });
+        salaries = allSalaries.filter(s => {
+            const d = (s.date || '').split('T')[0];
+            return d >= dateRange.startISO && d <= dateRange.endISO;
+        });
     }
 
     if (reportState.vehicleId !== 'all') {
-        bills = bills.filter(b => b.vehicleId === reportState.vehicleId);
-        fuel = fuel.filter(f => f.vehicleId === reportState.vehicleId);
+        bills = bills.filter(b => isVehicleMatch(b.vehicleId, reportState.vehicleId));
+        fuel = fuel.filter(f => isVehicleMatch(f.vehicleId, reportState.vehicleId));
+        services = services.filter(s => isVehicleMatch(s.vehicleId, reportState.vehicleId));
+        salaries = salaries.filter(s => !s.vehicleId || isVehicleMatch(s.vehicleId, reportState.vehicleId));
     }
 
     const stdBills = bills.filter(b => !b.isLocalIncome && b.tripType !== 'local');
@@ -3755,14 +4191,17 @@ function exportPeriodReportCsv() {
     const totalRev = bills.reduce((s, b) => s + (parseFloat(b.grandTotal) || 0), 0);
     const localRev = localBills.reduce((s, b) => s + (parseFloat(b.grandTotal) || 0), 0);
     const totalFuel = fuel.reduce((s, f) => s + (parseFloat(f.totalAmount) || 0), 0);
+    const totalService = services.reduce((s, x) => s + (parseFloat(x.amount) || 0), 0);
 
     const salaryBills = bills.filter(b => b.addToDriverSalary === true);
-    const totalDriverSalary = salaryBills.reduce((s, b) => {
+    const legacySalaryTotal = salaryBills.reduce((s, b) => {
         const amt = parseFloat(b.driverSalaryAmount);
         return s + (!isNaN(amt) && amt > 0 ? amt : (parseFloat(b.grandTotal) || 0));
     }, 0);
+    const directSalaryTotal = salaries.reduce((s, item) => s + (parseFloat(item.amount) || 0), 0);
+    const totalDriverSalary = legacySalaryTotal + directSalaryTotal;
 
-    const totalExpenses = totalFuel + totalDriverSalary;
+    const totalExpenses = totalFuel + totalDriverSalary + totalService;
     const netProfit = totalRev - totalExpenses;
 
     let csv = `Sri Moorthy Transport - Fleet Financial Statement\n`;
@@ -3771,30 +4210,42 @@ function exportPeriodReportCsv() {
     csv += `Generated On,${new Date().toLocaleString('en-IN')}\n\n`;
 
     csv += `EXECUTIVE SUMMARY\n`;
-    csv += `Gross Revenue,Local Trip Income,Fuel Expense,Driver Salary Expense,Total Operating Expense,Net Profit,Profit Margin,Total Invoices,Local Invoices,Total Fuel Logs\n`;
-    csv += `${totalRev},${localRev},${totalFuel},${totalDriverSalary},${totalExpenses},${netProfit},${totalRev > 0 ? ((netProfit / totalRev) * 100).toFixed(1) + '%' : '0%'},${bills.length},${localBills.length},${fuel.length}\n\n`;
+    csv += `Gross Revenue,Local Trip Income,Fuel Expense,Service Expense,Driver Salary Expense,Total Operating Expense,Net Profit,Profit Margin,Total Invoices,Local Invoices,Total Fuel Logs,Total Service Records,Total Driver Salaries\n`;
+    csv += `${totalRev},${localRev},${totalFuel},${totalService},${totalDriverSalary},${totalExpenses},${netProfit},${totalRev > 0 ? ((netProfit / totalRev) * 100).toFixed(1) + '%' : '0%'},${bills.length},${localBills.length},${fuel.length},${services.length},${salaries.length + salaryBills.length}\n\n`;
 
     csv += `VEHICLE PERFORMANCE SUMMARY\n`;
-    csv += `Vehicle Name,Vehicle Number,Total Trips,Local Trips,Gross Revenue,Local Revenue,Fuel Litres,Fuel Expense,Driver Salary,Total Expenses,Net Profit,Margin %\n`;
-    vehicles.forEach(v => {
-        const vBills = bills.filter(b => b.vehicleId === v.id);
-        const vFuel = fuel.filter(f => f.vehicleId === v.id);
+    csv += `Vehicle Name,Vehicle Number,Total Trips,Local Trips,Gross Revenue,Local Revenue,Fuel Litres,Fuel Expense,Service Expense,Driver Salary,Total Expenses,Net Profit,Margin %\n`;
+    
+    let targetVehicles = vehicles;
+    if (reportState.vehicleId !== 'all') {
+        targetVehicles = vehicles.filter(v => isItemForVehicle(reportState.vehicleId, v) || isVehicleMatch(v.id, reportState.vehicleId));
+        if (targetVehicles.length === 0) targetVehicles = vehicles;
+    }
+
+    targetVehicles.forEach(v => {
+        const vBills = bills.filter(b => isItemForVehicle(b.vehicleId, v));
+        const vFuel = fuel.filter(f => isItemForVehicle(f.vehicleId, v));
+        const vServices = services.filter(s => isItemForVehicle(s.vehicleId, v));
+        const vSalaries = salaries.filter(s => isItemForVehicle(s.vehicleId, v));
         const vLocal = vBills.filter(b => b.isLocalIncome === true || b.tripType === 'local');
         const rev = vBills.reduce((s, b) => s + (parseFloat(b.grandTotal) || 0), 0);
         const locRev = vLocal.reduce((s, b) => s + (parseFloat(b.grandTotal) || 0), 0);
         const fCost = vFuel.reduce((s, f) => s + (parseFloat(f.totalAmount) || 0), 0);
         const ltrs = vFuel.reduce((s, f) => s + (parseFloat(f.litres) || 0), 0);
-        const dSal = vBills.reduce((s, b) => {
+        const servCost = vServices.reduce((s, x) => s + (parseFloat(x.amount) || 0), 0);
+        const legSal = vBills.reduce((s, b) => {
             if (b.addToDriverSalary) {
                 const amt = parseFloat(b.driverSalaryAmount);
                 return s + (!isNaN(amt) && amt > 0 ? amt : (parseFloat(b.grandTotal) || 0));
             }
             return s;
         }, 0);
-        const exp = fCost + dSal;
+        const dirSal = vSalaries.reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0);
+        const dSal = legSal + dirSal;
+        const exp = fCost + servCost + dSal;
         const prof = rev - exp;
         const marg = rev > 0 ? ((prof / rev) * 100).toFixed(1) + '%' : '0%';
-        csv += `"${v.name}","${v.number}",${vBills.length},${vLocal.length},${rev},${locRev},${ltrs},${fCost},${dSal},${exp},${prof},${marg}\n`;
+        csv += `"${v.name}","${v.number}",${vBills.length},${vLocal.length},${rev},${locRev},${ltrs},${fCost},${servCost},${dSal},${exp},${prof},${marg}\n`;
     });
 
     csv += `\nDETAILED INVOICES & BILLS\n`;
@@ -3807,7 +4258,7 @@ function exportPeriodReportCsv() {
         const salAmt = parseFloat(b.driverSalaryAmount) || parseFloat(b.grandTotal) || 0;
         const salStatus = b.driverSalaryStatus || 'paid';
         const custDisplay = isLoc ? 'Local Run (Direct)' : (b.customerName || '');
-        csv += `"${b.billNumber}","${b.date}","${v ? v.number : '-'}","${custDisplay}","${b.fromLocation || ''} -> ${b.toLocation || ''}","${tripCls}","${hasSal ? 'Yes' : 'No'}","${b.driverName || ''}",${hasSal ? salAmt : 0},"${hasSal ? salStatus : '-'},${b.subtotal || 0},${b.gst || 0},${b.grandTotal || 0},${b.amountPaid || 0},${b.balance || 0},"${b.paymentStatus || ''}"\n`;
+        csv += `"${b.billNumber}","${b.date}","${v ? v.number : '-'}","${custDisplay}","${b.fromLocation || ''} -> ${b.toLocation || ''}","${tripCls}","${hasSal ? 'Yes' : 'No'}","${b.driverName || ''}",${hasSal ? salAmt : 0},"${hasSal ? salStatus : '-'}","${b.subtotal || 0}",${b.gst || 0},${b.grandTotal || 0},${b.amountPaid || 0},${b.balance || 0},"${b.paymentStatus || ''}"\n`;
     });
 
     csv += `\nDETAILED FUEL EXPENSES\n`;
@@ -3815,6 +4266,25 @@ function exportPeriodReportCsv() {
     fuel.forEach(f => {
         const v = getVehicleById(f.vehicleId);
         csv += `"${f.date}","${v ? v.number : '-'}","${f.station || ''}",${f.litres || 0},${f.rate || 0},${f.totalAmount || 0},"${f.odometer || ''}","${f.driver || ''}"\n`;
+    });
+
+    csv += `\nDETAILED VEHICLE SERVICE & MAINTENANCE EXPENSES\n`;
+    csv += `Date,Vehicle,Service Type,Garage / Vendor,Price (Amount),Odometer,Notes\n`;
+    services.forEach(s => {
+        const v = getVehicleById(s.vehicleId);
+        csv += `"${s.date}","${v ? v.number : '-'}","${s.serviceType || 'General Service'}","${s.garage || ''}",${s.amount || 0},"${s.odometer || ''}","${(s.notes || '').replace(/"/g, '""')}"\n`;
+    });
+
+    csv += `\nDETAILED DRIVER SALARY PAYOUTS\n`;
+    csv += `Date,Type,Driver Name,Vehicle,Amount,Status,Notes\n`;
+    salaries.forEach(s => {
+        const v = getVehicleById(s.vehicleId);
+        csv += `"${s.date}","Direct Payout","${s.driverName || 'Driver'}","${v ? v.number : 'General Fleet'}",${s.amount || 0},"${(s.status || 'paid').toUpperCase()}","${(s.notes || '').replace(/"/g, '""')}"\n`;
+    });
+    salaryBills.forEach(b => {
+        const v = getVehicleById(b.vehicleId);
+        const salAmt = parseFloat(b.driverSalaryAmount) || parseFloat(b.grandTotal) || 0;
+        csv += `"${b.date}","Bill-Linked (${b.billNumber})","${b.driverName || 'Driver'}","${v ? v.number : 'General Fleet'}",${salAmt},"${(b.driverSalaryStatus || 'paid').toUpperCase()}","${(b.notes || '').replace(/"/g, '""')}"\n`;
     });
 
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -3832,10 +4302,15 @@ function printReportStatement() {
     const dateRange = getReportDateRange(reportState.period);
     const allBills = getBills();
     const allFuel = getFuelLogs();
+    const allServices = typeof getVehicleServices === 'function' ? getVehicleServices() : [];
+    const allSalaries = getDriverSalaries();
     const vehicles = getVehicles();
 
     let bills = allBills;
     let fuel = allFuel;
+    let services = allServices;
+    let salaries = allSalaries;
+
     if (reportState.period !== 'all_time') {
         bills = allBills.filter(b => {
             const d = (b.date || '').split('T')[0];
@@ -3845,11 +4320,21 @@ function printReportStatement() {
             const d = (f.date || '').split('T')[0];
             return d >= dateRange.startISO && d <= dateRange.endISO;
         });
+        services = allServices.filter(s => {
+            const d = (s.date || '').split('T')[0];
+            return d >= dateRange.startISO && d <= dateRange.endISO;
+        });
+        salaries = allSalaries.filter(s => {
+            const d = (s.date || '').split('T')[0];
+            return d >= dateRange.startISO && d <= dateRange.endISO;
+        });
     }
 
     if (reportState.vehicleId !== 'all') {
-        bills = bills.filter(b => b.vehicleId === reportState.vehicleId);
-        fuel = fuel.filter(f => f.vehicleId === reportState.vehicleId);
+        bills = bills.filter(b => isVehicleMatch(b.vehicleId, reportState.vehicleId));
+        fuel = fuel.filter(f => isVehicleMatch(f.vehicleId, reportState.vehicleId));
+        services = services.filter(s => isVehicleMatch(s.vehicleId, reportState.vehicleId));
+        salaries = salaries.filter(s => !s.vehicleId || isVehicleMatch(s.vehicleId, reportState.vehicleId));
     }
 
     const stdBills = bills.filter(b => !b.isLocalIncome && b.tripType !== 'local');
@@ -3858,16 +4343,26 @@ function printReportStatement() {
     const localRev = localBills.reduce((s, b) => s + (parseFloat(b.grandTotal) || 0), 0);
     const totalFuel = fuel.reduce((s, f) => s + (parseFloat(f.totalAmount) || 0), 0);
     const totalLitres = fuel.reduce((s, f) => s + (parseFloat(f.litres) || 0), 0);
+    const totalService = services.reduce((s, x) => s + (parseFloat(x.amount) || 0), 0);
 
     const salaryBills = bills.filter(b => b.addToDriverSalary === true);
-    const totalDriverSalary = salaryBills.reduce((s, b) => {
+    const legacySalaryTotal = salaryBills.reduce((s, b) => {
         const amt = parseFloat(b.driverSalaryAmount);
         return s + (!isNaN(amt) && amt > 0 ? amt : (parseFloat(b.grandTotal) || 0));
     }, 0);
+    const directSalaryTotal = salaries.reduce((s, item) => s + (parseFloat(item.amount) || 0), 0);
+    const totalDriverSalary = legacySalaryTotal + directSalaryTotal;
 
-    const totalExpenses = totalFuel + totalDriverSalary;
+    const totalExpenses = totalFuel + totalDriverSalary + totalService;
     const netProfit = totalRev - totalExpenses;
     const margin = totalRev > 0 ? ((netProfit / totalRev) * 100).toFixed(1) + '%' : '0%';
+
+    let targetVehicles = vehicles;
+    const isSingleVehicle = reportState.vehicleId && reportState.vehicleId !== 'all';
+    if (isSingleVehicle) {
+        targetVehicles = vehicles.filter(v => isItemForVehicle(reportState.vehicleId, v) || isVehicleMatch(v.id, reportState.vehicleId));
+        if (targetVehicles.length === 0) targetVehicles = vehicles;
+    }
 
     const pWin = window.open('', '_blank');
     pWin.document.write(`
@@ -3878,7 +4373,7 @@ function printReportStatement() {
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet">
         <style>
             * { margin:0; padding:0; box-sizing:border-box; }
-            body { font-family:'Inter', sans-serif; padding:30px; color:#1e293b; max-width:900px; margin:0 auto; font-size:13px; line-height:1.5; }
+            body { font-family:'Inter', sans-serif; padding:30px; color:#1e293b; max-width:960px; margin:0 auto; font-size:13px; line-height:1.5; }
             .header { display:flex; justify-content:space-between; align-items:center; border-bottom:3px solid #EF5226; padding-bottom:16px; margin-bottom:20px; }
             .brand h1 { font-family:'Outfit', sans-serif; font-size:24px; color:#0f172a; }
             .brand h1 span { color:#EF5226; }
@@ -3886,12 +4381,13 @@ function printReportStatement() {
             .meta { text-align:right; font-size:12px; color:#475569; }
             .meta strong { color:#0f172a; }
             .period-badge { display:inline-block; background:#fff1ee; color:#EF5226; font-weight:700; padding:4px 10px; border-radius:6px; margin-top:4px; font-size:12px; }
-            .kpi-grid { display:grid; grid-template-columns:repeat(5, 1fr); gap:10px; margin:20px 0; }
-            .kpi-card { background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px 12px; }
+            .kpi-grid { display:grid; grid-template-columns:repeat(6, 1fr); gap:8px; margin:20px 0; }
+            .kpi-card { background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px 10px; }
             .kpi-title { font-size:10px; text-transform:uppercase; color:#64748b; font-weight:700; }
-            .kpi-val { font-family:'Outfit', sans-serif; font-size:17px; font-weight:800; color:#0f172a; margin-top:4px; }
+            .kpi-val { font-family:'Outfit', sans-serif; font-size:16px; font-weight:800; color:#0f172a; margin-top:4px; }
             .kpi-val.green { color:#16a34a; }
             .kpi-val.red { color:#dc2626; }
+            .kpi-val.orange { color:#d97706; }
             .kpi-val.teal { color:#0ea5e9; }
             .kpi-sub { font-size:10px; color:#64748b; margin-top:2px; }
             h3 { font-family:'Outfit', sans-serif; font-size:15px; margin:22px 0 10px 0; color:#0f172a; border-left:4px solid #EF5226; padding-left:8px; }
@@ -3905,6 +4401,7 @@ function printReportStatement() {
             .sign-line { border-top:1px solid #475569; margin-top:40px; padding-top:6px; font-weight:600; font-size:11px; }
             .badge-local { background:rgba(245, 158, 11, 0.15); color:#d97706; padding:2px 6px; border-radius:4px; font-size:10px; font-weight:700; }
             .badge-salary { background:rgba(14, 165, 233, 0.15); color:#0284c7; padding:2px 6px; border-radius:4px; font-size:10px; font-weight:700; }
+            .badge-service { background:rgba(239, 82, 38, 0.12); color:#c2410c; padding:2px 6px; border-radius:4px; font-size:10px; font-weight:700; }
             @media print { body { padding:10px; } button { display:none; } }
         </style>
     </head>
@@ -3934,9 +4431,14 @@ function printReportStatement() {
                 <div class="kpi-sub">${totalLitres.toFixed(1)} L used</div>
             </div>
             <div class="kpi-card">
+                <div class="kpi-title">Service & Repairs</div>
+                <div class="kpi-val orange">${formatCurrency(totalService)}</div>
+                <div class="kpi-sub">${services.length} services</div>
+            </div>
+            <div class="kpi-card">
                 <div class="kpi-title">Driver Salary</div>
                 <div class="kpi-val teal">${formatCurrency(totalDriverSalary)}</div>
-                <div class="kpi-sub">${salaryBills.length} allocations</div>
+                <div class="kpi-sub">${salaries.length + salaryBills.length} disbursements</div>
             </div>
             <div class="kpi-card">
                 <div class="kpi-title">Net Profit/Loss</div>
@@ -3946,7 +4448,7 @@ function printReportStatement() {
             <div class="kpi-card">
                 <div class="kpi-title">Margin %</div>
                 <div class="kpi-val">${margin}</div>
-                <div class="kpi-sub">Rev - Fuel - Salary</div>
+                <div class="kpi-sub">Rev - Exp</div>
             </div>
         </div>
 
@@ -3959,27 +4461,33 @@ function printReportStatement() {
                     <th>Gross Revenue</th>
                     <th>Fuel Cost</th>
                     <th>Driver Salary</th>
+                    <th>Service Expense</th>
                     <th>Total Expenses</th>
                     <th>Net Profit / Loss</th>
                     <th>Margin</th>
                 </tr>
             </thead>
             <tbody>
-                ${vehicles.map(v => {
-                    const vBills = bills.filter(b => b.vehicleId === v.id);
-                    const vFuel = fuel.filter(f => f.vehicleId === v.id);
+                ${targetVehicles.map(v => {
+                    const vBills = bills.filter(b => isItemForVehicle(b.vehicleId, v));
+                    const vFuel = fuel.filter(f => isItemForVehicle(f.vehicleId, v));
+                    const vServices = services.filter(s => isItemForVehicle(s.vehicleId, v));
+                    const vSalaries = salaries.filter(s => isItemForVehicle(s.vehicleId, v));
                     const vStd = vBills.filter(b => !b.isLocalIncome && b.tripType !== 'local');
                     const vLocal = vBills.filter(b => b.isLocalIncome === true || b.tripType === 'local');
                     const rev = vBills.reduce((s, b) => s + (parseFloat(b.grandTotal) || 0), 0);
                     const fCost = vFuel.reduce((s, f) => s + (parseFloat(f.totalAmount) || 0), 0);
-                    const dSal = vBills.reduce((s, b) => {
+                    const servCost = vServices.reduce((s, x) => s + (parseFloat(x.amount) || 0), 0);
+                    const legSal = vBills.reduce((s, b) => {
                         if (b.addToDriverSalary) {
                             const amt = parseFloat(b.driverSalaryAmount);
                             return s + (!isNaN(amt) && amt > 0 ? amt : (parseFloat(b.grandTotal) || 0));
                         }
                         return s;
                     }, 0);
-                    const exp = fCost + dSal;
+                    const dirSal = vSalaries.reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0);
+                    const dSal = legSal + dirSal;
+                    const exp = fCost + servCost + dSal;
                     const prof = rev - exp;
                     const marg = rev > 0 ? ((prof / rev) * 100).toFixed(1) + '%' : '0%';
                     return `<tr>
@@ -3988,17 +4496,19 @@ function printReportStatement() {
                         <td style="color:#16a34a;font-weight:600;">${formatCurrency(rev)}</td>
                         <td style="color:#dc2626;">${formatCurrency(fCost)}</td>
                         <td style="color:#0284c7;">${dSal > 0 ? formatCurrency(dSal) : '—'}</td>
+                        <td style="color:#d97706;font-weight:600;">${servCost > 0 ? formatCurrency(servCost) : '—'}</td>
                         <td style="color:#475569;font-weight:600;">${formatCurrency(exp)}</td>
                         <td style="font-weight:700;color:${prof >= 0 ? '#16a34a' : '#dc2626'}">${formatCurrency(prof)}</td>
                         <td>${marg}</td>
                     </tr>`;
                 }).join('')}
                 <tr class="total-row">
-                    <td>TOTAL FLEET</td>
+                    <td>${isSingleVehicle ? `SUBTOTAL (${targetVehicles[0]?.name || ''} ${targetVehicles[0]?.number || ''})` : 'TOTAL FLEET'}</td>
                     <td style="text-align:center;">${bills.length} (${stdBills.length}/${localBills.length}L)</td>
                     <td style="color:#16a34a;">${formatCurrency(totalRev)}</td>
                     <td style="color:#dc2626;">${formatCurrency(totalFuel)}</td>
                     <td style="color:#0284c7;">${formatCurrency(totalDriverSalary)}</td>
+                    <td style="color:#d97706;font-weight:700;">${formatCurrency(totalService)}</td>
                     <td style="color:#475569;">${formatCurrency(totalExpenses)}</td>
                     <td style="color:${netProfit >= 0 ? '#16a34a' : '#dc2626'}">${formatCurrency(netProfit)}</td>
                     <td>${margin}</td>
@@ -4061,6 +4571,63 @@ function printReportStatement() {
             </tbody>
         </table>
 
+        <h3>Vehicle Service & Maintenance Records (${services.length})</h3>
+        <table>
+            <thead>
+                <tr><th>Date</th><th>Vehicle</th><th>Service Type</th><th>Garage / Vendor</th><th>Odometer</th><th>Notes</th><th style="text-align:right;">Price</th></tr>
+            </thead>
+            <tbody>
+                ${services.length === 0 ? '<tr><td colspan="7" style="text-align:center;">No service records in this period</td></tr>' : services.map(s => {
+                    const v = getVehicleById(s.vehicleId);
+                    return `<tr>
+                        <td>${s.date}</td>
+                        <td>${v ? v.number : '-'}</td>
+                        <td><span class="badge-service">${s.serviceType || 'General Service'}</span></td>
+                        <td>${s.garage || '—'}</td>
+                        <td>${s.odometer ? `${s.odometer} km` : '—'}</td>
+                        <td>${s.notes || '—'}</td>
+                        <td style="text-align:right;font-weight:700;color:#d97706;">${formatCurrency(s.amount)}</td>
+                    </tr>`;
+                }).join('')}
+            </tbody>
+        </table>
+
+        <h3>Driver Salary Ledger (${salaries.length + salaryBills.length})</h3>
+        <table>
+            <thead>
+                <tr><th>Date</th><th>Type</th><th>Driver</th><th>Vehicle</th><th>Status</th><th>Notes</th><th style="text-align:right;">Amount</th></tr>
+            </thead>
+            <tbody>
+                ${(salaries.length + salaryBills.length) === 0 ? '<tr><td colspan="7" style="text-align:center;">No driver salary records in this period</td></tr>' : [
+                    ...salaries.map(s => {
+                        const v = getVehicleById(s.vehicleId);
+                        return `<tr>
+                            <td>${s.date}</td>
+                            <td><span class="badge-salary">Direct Payout</span></td>
+                            <td><strong>${s.driverName || 'Driver'}</strong></td>
+                            <td>${v ? v.number : 'General Fleet'}</td>
+                            <td>${(s.status || 'paid').toUpperCase()}</td>
+                            <td>${s.notes || '—'}</td>
+                            <td style="text-align:right;font-weight:700;color:#0284c7;">${formatCurrency(s.amount)}</td>
+                        </tr>`;
+                    }),
+                    ...salaryBills.map(b => {
+                        const v = getVehicleById(b.vehicleId);
+                        const salAmt = parseFloat(b.driverSalaryAmount) || parseFloat(b.grandTotal) || 0;
+                        return `<tr>
+                            <td>${b.date}</td>
+                            <td><span class="badge-salary">Bill ${b.billNumber}</span></td>
+                            <td><strong>${b.driverName || 'Driver'}</strong></td>
+                            <td>${v ? v.number : 'General Fleet'}</td>
+                            <td>${(b.driverSalaryStatus || 'paid').toUpperCase()}</td>
+                            <td>${b.notes || 'Trip Salary'}</td>
+                            <td style="text-align:right;font-weight:700;color:#0284c7;">${formatCurrency(salAmt)}</td>
+                        </tr>`;
+                    })
+                ].join('')}
+            </tbody>
+        </table>
+
         <div class="footer-sign">
             <div class="sign-box">
                 <div class="sign-line">Prepared By (Accounts)</div>
@@ -4078,6 +4645,19 @@ function printReportStatement() {
     }, 400);
 }
 
+// Window exports for reports & analytics
+window.setReportPeriod = setReportPeriod;
+window.setMonthGranularity = setMonthGranularity;
+window.onReportVehicleChange = onReportVehicleChange;
+window.applyCustomReportDates = applyCustomReportDates;
+window.switchReportTxnTab = switchReportTxnTab;
+window.renderReports = renderReports;
+window.exportPeriodReportCsv = exportPeriodReportCsv;
+window.printReportStatement = printReportStatement;
+window.getVehicleById = getVehicleById;
+window.isVehicleMatch = isVehicleMatch;
+window.isItemForVehicle = isItemForVehicle;
+
 // ===== EXPORT DATA =====
 function exportAllData() {
     const data = {
@@ -4086,6 +4666,7 @@ function exportAllData() {
         vehicles: getVehicles(),
         bills: getBills(),
         fuelLogs: getFuelLogs(),
+        vehicleServices: getVehicleServices(),
         driverSalaries: getDriverSalaries()
     };
 
@@ -4367,6 +4948,34 @@ async function deleteDriverSalaryFromSupabase(id) {
     }
 }
 
+async function uploadVehicleServiceToSupabase(service) {
+    if (!supabaseClient || !isSupabaseConnected) return;
+    if (!hasRelationalTables) return;
+    try {
+        const row = mapVehicleServiceToSupabase(service);
+        const { error } = await supabaseClient.from('vehicle_services').upsert(row);
+        if (error) {
+            console.error('Supabase vehicle service upsert error:', error);
+        } else {
+            console.log('Vehicle service synced to Supabase successfully:', service.serviceType, service.amount);
+        }
+    } catch (err) {
+        console.error('Supabase uploadVehicleService error:', err);
+    }
+}
+
+async function deleteVehicleServiceFromSupabase(id) {
+    if (!supabaseClient || !isSupabaseConnected) return;
+    if (!hasRelationalTables) return;
+    try {
+        if (isValidUUID(id)) {
+            await supabaseClient.from('vehicle_services').delete().eq('id', id);
+        }
+    } catch (err) {
+        console.error('Supabase deleteVehicleService error:', err);
+    }
+}
+
 async function persistFleetToSupabase() {
     if (!supabaseClient || !isSupabaseConnected) return;
     try {
@@ -4374,6 +4983,7 @@ async function persistFleetToSupabase() {
             vehicles: getVehicles(),
             bills: getBills(),
             fuel: getFuelLogs(),
+            services: getVehicleServices(),
             notifications: getNotifications(),
             billCounter: getStore(STORAGE_KEYS.billCounter) || 0,
             updatedAt: new Date().toISOString()
@@ -4553,6 +5163,14 @@ function setupSupabaseRealtime() {
                 console.log('Realtime vehicles update detected');
                 await pullFromSupabase(false);
             })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'vehicle_services' }, async () => {
+                console.log('Realtime vehicle services update detected');
+                await pullFromSupabase(false);
+            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'driver_salaries' }, async () => {
+                console.log('Realtime driver salary update detected');
+                await pullFromSupabase(false);
+            })
             .subscribe();
     } catch (e) {
         console.warn('Realtime subscription warning:', e);
@@ -4570,6 +5188,7 @@ async function pullFromSupabase(showToastMsg = true) {
 
         const deletedBills = getStore('sm_deleted_bills') || [];
         const deletedFuel = getStore('sm_deleted_fuel') || [];
+        const deletedServices = getStore('sm_deleted_services') || [];
 
         // 1. Pull from relational tables if available
         if (hasRelationalTables) {
@@ -4591,6 +5210,13 @@ async function pullFromSupabase(showToastMsg = true) {
                 if (!fErr && fData) {
                     const validFuel = fData.map(mapFuelFromSupabase).filter(f => !deletedFuel.includes(String(f.id)));
                     setStore(STORAGE_KEYS.fuel, validFuel);
+                    pulledData = true;
+                }
+
+                const { data: svData, error: svErr } = await supabaseClient.from('vehicle_services').select('*');
+                if (!svErr && svData) {
+                    const validServices = svData.map(mapVehicleServiceFromSupabase).filter(s => !deletedServices.includes(String(s.id)));
+                    saveVehicleServices(validServices);
                     pulledData = true;
                 }
 
@@ -4622,6 +5248,10 @@ async function pullFromSupabase(showToastMsg = true) {
                     if (cloudJson.fuel && cloudJson.fuel.length > 0 && (!hasRelationalTables || getFuelLogs().length === 0)) {
                         const validFuel = cloudJson.fuel.filter(f => !deletedFuel.includes(String(f.id)));
                         setStore(STORAGE_KEYS.fuel, validFuel);
+                    }
+                    if (cloudJson.services && cloudJson.services.length > 0 && (!hasRelationalTables || getVehicleServices().length === 0)) {
+                        const validServices = cloudJson.services.filter(s => !deletedServices.includes(String(s.id)));
+                        saveVehicleServices(validServices);
                     }
                     if (cloudJson.billCounter) {
                         setStore(STORAGE_KEYS.billCounter, cloudJson.billCounter);
@@ -4663,11 +5293,13 @@ async function syncLocalToSupabase(showSuccessToast = true) {
 
     const bills = getBills();
     const fuel = getFuelLogs();
+    const services = getVehicleServices();
 
     if (showSuccessToast) showToast('Syncing records to Supabase Cloud...', 'info');
 
     let billsSynced = 0;
     let fuelSynced = 0;
+    let servicesSynced = 0;
 
     try {
         for (const bill of bills) {
@@ -4684,6 +5316,13 @@ async function syncLocalToSupabase(showSuccessToast = true) {
             else console.warn('Fuel sync item warning:', error);
         }
 
+        for (const s of services) {
+            const row = mapVehicleServiceToSupabase(s);
+            const { error } = await supabaseClient.from('vehicle_services').upsert(row);
+            if (!error) servicesSynced++;
+            else console.warn('Service sync item warning:', error);
+        }
+
         const salaries = getDriverSalaries();
         let salariesSynced = 0;
         for (const sal of salaries) {
@@ -4695,7 +5334,7 @@ async function syncLocalToSupabase(showSuccessToast = true) {
 
         await persistFleetToSupabase();
         if (showSuccessToast) {
-            showToast(`✅ Synced ${billsSynced}/${bills.length} bills, ${fuelSynced}/${fuel.length} fuel logs & ${salariesSynced}/${salaries.length} driver salaries to Supabase! 🚀☁️`, 'success');
+            showToast(`✅ Synced ${billsSynced}/${bills.length} bills, ${fuelSynced}/${fuel.length} fuel logs, ${servicesSynced}/${services.length} services & ${salariesSynced}/${salaries.length} driver salaries to Supabase! 🚀☁️`, 'success');
         }
     } catch (e) {
         console.error('Sync error:', e);
@@ -4892,7 +5531,7 @@ function disconnectSupabase() {
 }
 
 async function resetDatabase() {
-    const confirmed = confirm('⚠️ ARE YOU SURE YOU WANT TO RESET THE DATABASE?\n\nThis will permanently clear:\n• All bills and invoices\n• All fuel logs\n• Reset bill counter to SM-0001\n• Reset vehicles to the default 3 vehicles\n\nAre you sure you want to proceed?');
+    const confirmed = confirm('⚠️ ARE YOU SURE YOU WANT TO RESET THE DATABASE?\n\nThis will permanently clear:\n• All bills and invoices\n• All fuel logs\n• All vehicle service & maintenance logs\n• All driver salaries\n• Reset bill counter to SM-0001\n• Reset vehicles to the default 3 vehicles\n\nAre you sure you want to proceed?');
     if (!confirmed) return;
 
     try {
@@ -4901,15 +5540,19 @@ async function resetDatabase() {
         // 1. Reset Local Storage data
         setStore(STORAGE_KEYS.bills, []);
         setStore(STORAGE_KEYS.fuel, []);
+        setStore(STORAGE_KEYS.services, []);
         setStore(STORAGE_KEYS.notifications, []);
         setStore(STORAGE_KEYS.billCounter, 0);
         setStore(STORAGE_KEYS.vehicles, DEFAULT_VEHICLES);
+        saveDriverSalaries([]);
 
         // 2. If Supabase is connected, clear cloud tables
         if (supabaseClient) {
             try {
                 await supabaseClient.from('bills').delete().neq('id', '00000000-0000-0000-0000-000000000000');
                 await supabaseClient.from('fuel_logs').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+                await supabaseClient.from('vehicle_services').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+                await supabaseClient.from('driver_salaries').delete().neq('id', '00000000-0000-0000-0000-000000000000');
                 const toInsert = DEFAULT_VEHICLES.map(v => ({
                     name: v.name,
                     number: v.number,
@@ -4926,8 +5569,9 @@ async function resetDatabase() {
         // 3. Re-render UI views
         if (typeof renderDashboard === 'function') renderDashboard();
         if (typeof renderBills === 'function') renderBills();
-        if (typeof renderFuel === 'function') renderFuel();
+        if (typeof renderFuelLogs === 'function') renderFuelLogs();
         if (typeof renderVehicles === 'function') renderVehicles();
+        if (typeof renderReports === 'function') renderReports();
         if (typeof updateNotificationsUI === 'function') updateNotificationsUI();
 
         showToast('✅ Database reset successfully! All data cleared to fresh state.', 'success');
@@ -4964,11 +5608,16 @@ CREATE TABLE IF NOT EXISTS public.bills (
     bill_number TEXT NOT NULL UNIQUE,
     date DATE NOT NULL,
     vehicle_id UUID REFERENCES public.vehicles(id) ON DELETE SET NULL,
-    customer_name TEXT NOT NULL,
+    customer_name TEXT,
     customer_phone TEXT,
     from_location TEXT NOT NULL,
     to_location TEXT NOT NULL,
     goods_desc TEXT,
+    is_local_income BOOLEAN DEFAULT false,
+    add_to_driver_salary BOOLEAN DEFAULT false,
+    driver_name TEXT,
+    driver_salary_amount NUMERIC(12,2) DEFAULT 0,
+    driver_salary_status TEXT DEFAULT 'paid' CHECK (driver_salary_status IN ('paid', 'unpaid')),
     line_items JSONB DEFAULT '[]'::jsonb,
     subtotal NUMERIC(12,2) DEFAULT 0,
     gst_percent NUMERIC(5,2) DEFAULT 0,
@@ -4999,20 +5648,51 @@ CREATE TABLE IF NOT EXISTS public.fuel_logs (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 4. APP SETTINGS TABLE
+-- 4. DRIVER SALARIES TABLE
+CREATE TABLE IF NOT EXISTS public.driver_salaries (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    date DATE NOT NULL,
+    driver_name TEXT NOT NULL,
+    amount NUMERIC(12,2) NOT NULL,
+    status TEXT DEFAULT 'paid' CHECK (status IN ('paid', 'unpaid')),
+    vehicle_id UUID REFERENCES public.vehicles(id) ON DELETE SET NULL,
+    notes TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 5. VEHICLE SERVICE & MAINTENANCE EXPENSES TABLE
+CREATE TABLE IF NOT EXISTS public.vehicle_services (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    date DATE NOT NULL,
+    vehicle_id UUID REFERENCES public.vehicles(id) ON DELETE SET NULL,
+    service_type TEXT NOT NULL,
+    amount NUMERIC(12,2) NOT NULL,
+    garage TEXT,
+    odometer NUMERIC(12,0),
+    notes TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 6. APP SETTINGS TABLE
 CREATE TABLE IF NOT EXISTS public.app_settings (
     key TEXT PRIMARY KEY,
     value JSONB NOT NULL,
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 5. PERFORMANCE INDEXES
+-- 7. PERFORMANCE INDEXES
 CREATE INDEX IF NOT EXISTS idx_bills_vehicle_id ON public.bills(vehicle_id);
 CREATE INDEX IF NOT EXISTS idx_bills_date ON public.bills(date DESC);
 CREATE INDEX IF NOT EXISTS idx_fuel_logs_vehicle_id ON public.fuel_logs(vehicle_id);
 CREATE INDEX IF NOT EXISTS idx_fuel_logs_date ON public.fuel_logs(date DESC);
+CREATE INDEX IF NOT EXISTS idx_driver_salaries_date ON public.driver_salaries(date DESC);
+CREATE INDEX IF NOT EXISTS idx_driver_salaries_driver ON public.driver_salaries(driver_name);
+CREATE INDEX IF NOT EXISTS idx_vehicle_services_vehicle_id ON public.vehicle_services(vehicle_id);
+CREATE INDEX IF NOT EXISTS idx_vehicle_services_date ON public.vehicle_services(date DESC);
 
--- 6. SEED DEFAULT FLEET VEHICLES
+-- 8. SEED DEFAULT FLEET VEHICLES
 INSERT INTO public.vehicles (name, number, type, color, status)
 VALUES 
     ('TATA ACE', 'TN68C6003', 'TATA ACE', '#EF5226', 'active'),
@@ -5020,13 +5700,15 @@ VALUES
     ('DOST+', 'TN82K1945', 'DOST+', '#10b981', 'active')
 ON CONFLICT (number) DO NOTHING;
 
--- 7. ENABLE ROW LEVEL SECURITY (RLS)
+-- 9. ENABLE ROW LEVEL SECURITY (RLS)
 ALTER TABLE public.vehicles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.bills ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.fuel_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.driver_salaries ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.vehicle_services ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.app_settings ENABLE ROW LEVEL SECURITY;
 
--- 8. RLS POLICIES (FULL READ & WRITE ACCESS)
+-- 10. RLS POLICIES (FULL READ & WRITE ACCESS)
 DROP POLICY IF EXISTS "Allow public read access to vehicles" ON public.vehicles;
 DROP POLICY IF EXISTS "Allow public write access to vehicles" ON public.vehicles;
 CREATE POLICY "Allow public read access to vehicles" ON public.vehicles FOR SELECT USING (true);
@@ -5042,12 +5724,22 @@ DROP POLICY IF EXISTS "Allow public write access to fuel_logs" ON public.fuel_lo
 CREATE POLICY "Allow public read access to fuel_logs" ON public.fuel_logs FOR SELECT USING (true);
 CREATE POLICY "Allow public write access to fuel_logs" ON public.fuel_logs FOR ALL USING (true) WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Allow public read access to driver_salaries" ON public.driver_salaries;
+DROP POLICY IF EXISTS "Allow public write access to driver_salaries" ON public.driver_salaries;
+CREATE POLICY "Allow public read access to driver_salaries" ON public.driver_salaries FOR SELECT USING (true);
+CREATE POLICY "Allow public write access to driver_salaries" ON public.driver_salaries FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow public read access to vehicle_services" ON public.vehicle_services;
+DROP POLICY IF EXISTS "Allow public write access to vehicle_services" ON public.vehicle_services;
+CREATE POLICY "Allow public read access to vehicle_services" ON public.vehicle_services FOR SELECT USING (true);
+CREATE POLICY "Allow public write access to vehicle_services" ON public.vehicle_services FOR ALL USING (true) WITH CHECK (true);
+
 DROP POLICY IF EXISTS "Allow public read access to app_settings" ON public.app_settings;
 DROP POLICY IF EXISTS "Allow public write access to app_settings" ON public.app_settings;
 CREATE POLICY "Allow public read access to app_settings" ON public.app_settings FOR SELECT USING (true);
 CREATE POLICY "Allow public write access to app_settings" ON public.app_settings FOR ALL USING (true) WITH CHECK (true);
 
--- 9. SAFE REALTIME ACTIVATION
+-- 11. SAFE REALTIME ACTIVATION
 DO $$
 BEGIN
     BEGIN
@@ -5062,7 +5754,24 @@ BEGIN
         ALTER PUBLICATION supabase_realtime ADD TABLE public.fuel_logs;
     EXCEPTION WHEN OTHERS THEN NULL;
     END;
-END $$;`;
+    BEGIN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.driver_salaries;
+    EXCEPTION WHEN OTHERS THEN NULL;
+    END;
+    BEGIN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.vehicle_services;
+    EXCEPTION WHEN OTHERS THEN NULL;
+    END;
+END $$;
+
+-- 12. MIGRATIONS FOR EXISTING DATABASES
+ALTER TABLE public.bills ADD COLUMN IF NOT EXISTS is_local_income BOOLEAN DEFAULT false;
+ALTER TABLE public.bills ADD COLUMN IF NOT EXISTS add_to_driver_salary BOOLEAN DEFAULT false;
+ALTER TABLE public.bills ADD COLUMN IF NOT EXISTS driver_name TEXT;
+ALTER TABLE public.bills ADD COLUMN IF NOT EXISTS driver_salary_amount NUMERIC(12,2) DEFAULT 0;
+ALTER TABLE public.bills ADD COLUMN IF NOT EXISTS driver_salary_status TEXT DEFAULT 'paid';
+ALTER TABLE public.bills ALTER COLUMN customer_name DROP NOT NULL;
+ALTER TABLE public.vehicles ADD COLUMN IF NOT EXISTS service_cost NUMERIC(12,2) DEFAULT 0;`;
 
 function copySupabaseSql() {
     if (navigator.clipboard && navigator.clipboard.writeText) {

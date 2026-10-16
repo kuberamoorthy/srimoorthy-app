@@ -7,8 +7,10 @@
 -- 1. DELETE ALL BILLS AND INVOICES
 TRUNCATE TABLE public.bills CASCADE;
 
--- 2. DELETE ALL FUEL LOGS
+-- 2. DELETE ALL FUEL LOGS, DRIVER SALARIES & VEHICLE SERVICES
 TRUNCATE TABLE public.fuel_logs CASCADE;
+TRUNCATE TABLE public.driver_salaries CASCADE;
+TRUNCATE TABLE public.vehicle_services CASCADE;
 
 -- 3. RESET VEHICLES TO DEFAULT FLEET
 DELETE FROM public.vehicles WHERE number NOT IN ('TN68C6003', 'TN68W2419', 'TN82K1945');
@@ -27,5 +29,9 @@ DELETE FROM public.app_settings WHERE key = 'bill_counter';
 SELECT 'bills count' AS table_name, count(*) FROM public.bills
 UNION ALL
 SELECT 'fuel_logs count', count(*) FROM public.fuel_logs
+UNION ALL
+SELECT 'driver_salaries count', count(*) FROM public.driver_salaries
+UNION ALL
+SELECT 'vehicle_services count', count(*) FROM public.vehicle_services
 UNION ALL
 SELECT 'vehicles count', count(*) FROM public.vehicles;

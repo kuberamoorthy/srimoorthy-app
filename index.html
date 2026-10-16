@@ -387,6 +387,10 @@
                             <div class="qa-icon emerald" style="background:rgba(16,185,129,0.15);color:#10B981;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/><path d="M16 11h6m-3-3v6"/></svg></div>
                             <span>Driver Salary</span>
                         </button>
+                        <button class="quick-action-btn" onclick="openVehicleServiceModal()">
+                            <div class="qa-icon orange" style="background:rgba(239,82,38,0.15);color:var(--orange);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></div>
+                            <span>Service Expense</span>
+                        </button>
                         <button class="quick-action-btn" onclick="navigateTo('fuel'); setTimeout(()=>document.getElementById('addFuelBtn').click(), 300)">
                             <div class="qa-icon green"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 22V6a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v16"/><path d="M13 10h4a2 2 0 0 1 2 2v8"/><line x1="3" y1="22" x2="23" y2="22"/></svg></div>
                             <span>Add Fuel</span>
@@ -433,7 +437,13 @@
                 <div class="page-header">
                     <div>
                         <h2 class="page-title">Vehicles</h2>
-                        <p class="page-subtitle">Manage your fleet vehicles</p>
+                        <p class="page-subtitle">Manage your fleet vehicles, live status & maintenance costs</p>
+                    </div>
+                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                        <button class="btn-primary-app" onclick="openVehicleServiceModal()" title="Add Service & Maintenance Expense">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                            <span>+ Service Expense</span>
+                        </button>
                     </div>
                 </div>
                 <div class="vehicle-grid" id="vehicleGrid"></div>
@@ -605,7 +615,7 @@
                     <div class="report-meta-bar">
                         <div class="report-range-badge" id="reportRangeBadge">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                            <span id="reportRangeText">01 Oct 2026 – 31 Oct 2026 (October 2026)</span>
+                            <span id="reportRangeText">Loading period...</span>
                         </div>
 
                         <div class="report-controls-group">
@@ -684,11 +694,13 @@
                             <button class="report-pill active" id="pillShowBills" onclick="switchReportTxnTab('bills')">Bills (<span id="periodBillsCount">0</span>)</button>
                             <button class="report-pill" id="pillShowFuel" onclick="switchReportTxnTab('fuel')">Fuel Logs (<span id="periodFuelCount">0</span>)</button>
                             <button class="report-pill" id="pillShowSalary" onclick="switchReportTxnTab('salary')">Driver Salary (<span id="periodSalaryCount">0</span>)</button>
+                            <button class="report-pill" id="pillShowService" onclick="switchReportTxnTab('service')">Vehicle Services (<span id="periodServiceCount">0</span>)</button>
                         </div>
                     </div>
                     <div id="reportBillsSection" class="report-txn-list"></div>
                     <div id="reportFuelSection" class="report-txn-list" style="display:none;"></div>
                     <div id="reportSalarySection" class="report-txn-list" style="display:none;"></div>
+                    <div id="reportServiceSection" class="report-txn-list" style="display:none;"></div>
                 </div>
             </section>
         </main>
@@ -754,6 +766,12 @@
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/><path d="M16 11h6m-3-3v6"/></svg>
                 </div>
                 <span>Driver Salary</span>
+            </button>
+            <button class="quick-add-item" onclick="closeQuickAdd(); openVehicleServiceModal()">
+                <div class="qa-item-icon orange" style="background:rgba(239,82,38,0.15);color:var(--orange);">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+                </div>
+                <span>Service Expense</span>
             </button>
         </div>
     </div>
@@ -1053,6 +1071,89 @@
                         <div style="display:flex;gap:10px;margin-left:auto;">
                             <button type="button" class="btn-secondary-app" onclick="closeDriverSalaryModal()">Cancel</button>
                             <button type="submit" class="btn-primary-app" style="background:linear-gradient(135deg, #10B981, #059669);border-color:rgba(16,185,129,0.5);">Save Driver Salary</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Vehicle Service Expense Modal -->
+    <div class="modal-overlay" id="vehicleServiceModal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title-with-icon">
+                    <div class="modal-icon-badge orange" style="width:38px;height:38px;border-radius:10px;background:rgba(239,82,38,0.15);color:var(--orange,#EF5226);display:flex;align-items:center;justify-content:center;">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+                    </div>
+                    <div>
+                        <h3 id="vehicleServiceModalTitle" style="margin:0;font-size:17px;">Add Vehicle Service Expense</h3>
+                        <p class="modal-subtitle" style="margin:2px 0 0 0;font-size:12px;color:var(--text-secondary);">Maintenance, repair & servicing price breakdown</p>
+                    </div>
+                </div>
+                <button class="modal-close" onclick="closeVehicleServiceModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <form id="vehicleServiceForm" onsubmit="saveVehicleService(event)">
+                    <input type="hidden" id="serviceId">
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Service Date</label>
+                            <input type="date" id="serviceDate" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Vehicle</label>
+                            <select id="serviceVehicle" required>
+                                <option value="">Select Vehicle</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Service / Maintenance Type</label>
+                            <select id="serviceType" required>
+                                <option value="General Service">🛠️ General Service & Checkup</option>
+                                <option value="Oil & Filter Change">🛢️ Engine Oil & Filter Change</option>
+                                <option value="Brake Repair">🛑 Brake Pads / Brake Lining</option>
+                                <option value="Tyre & Alignment">🛞 Tyre Replacement / Alignment</option>
+                                <option value="Engine & Transmission">⚙️ Engine / Clutch / Gearbox</option>
+                                <option value="Electrical & Battery">🔋 Battery / Alternator / Wiring</option>
+                                <option value="Suspension & Steering">🔩 Suspension & Leaf Springs</option>
+                                <option value="Body & Paint Work">🎨 Body Repair / Painting / Welding</option>
+                                <option value="Periodic Inspection / FC">📋 Fitness Certificate (FC) / Inspection</option>
+                                <option value="Breakdown Repair">🚨 Emergency Breakdown / Towing</option>
+                                <option value="Other Service">🔧 Other Service / Spare Parts</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Service Price / Amount (₹)</label>
+                            <input type="number" id="serviceAmount" placeholder="Enter service price (e.g. 3500)" min="0" step="0.01" required style="font-weight:700;font-size:15px;color:var(--orange,#EF5226);">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Garage / Workshop Name</label>
+                            <input type="text" id="serviceGarage" placeholder="e.g. TVS Mobility, Royal Motors Kumbakonam">
+                        </div>
+                        <div class="form-group">
+                            <label>Odometer Reading (km)</label>
+                            <input type="number" id="serviceOdometer" placeholder="e.g. 142500" min="0">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Service Details / Work Done / Notes</label>
+                        <textarea id="serviceNotes" placeholder="Describe parts replaced, garage invoice number, mechanic notes..." rows="3"></textarea>
+                    </div>
+
+                    <div class="modal-actions" style="display:flex;justify-content:space-between;align-items:center;">
+                        <button type="button" id="serviceDeleteBtn" class="btn-secondary-app" style="display:none;color:var(--red);border-color:rgba(239,68,68,0.4);" onclick="deleteCurrentVehicleService()">🗑️ Delete</button>
+                        <div style="display:flex;gap:10px;margin-left:auto;">
+                            <button type="button" class="btn-secondary-app" onclick="closeVehicleServiceModal()">Cancel</button>
+                            <button type="submit" class="btn-primary-app">Save Service Expense</button>
                         </div>
                     </div>
                 </form>
