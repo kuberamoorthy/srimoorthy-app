@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="en" data-mode="dark">
+<html lang="en" data-mode="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="description" content="Sri Moorthy Transport - Fleet Management, Billing & Fuel Tracking App">
-    <meta name="theme-color" content="#090D16">
+    <meta name="theme-color" content="#F8FAFC">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>Sri Moorthy Transport | Fleet Operations Control Center</title>
@@ -12,9 +12,11 @@
     <link rel="icon" href="https://mr-vishal-dev.github.io/kuberatravels/logo.png">
     <link rel="apple-touch-icon" href="https://mr-vishal-dev.github.io/kuberatravels/logo.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://fonts.gstatic.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Outfit:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=35">
+    <link rel="preload" as="image" href="login_logo_circle.png">
+    <link rel="preload" as="image" href="login_bg.jpg">
+    <link rel="stylesheet" href="style.css?v=48">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
@@ -37,6 +39,161 @@
             </div>
         </div>
     </div>
+
+    <!-- Login Screen (Clean Executive Portal - Logo & SRI MOORTHY TRANSPORT) -->
+    <div id="loginScreen" class="clean-login-screen" style="display:none;">
+        <div class="clean-login-backdrop">
+            <div class="clean-ambient-glow glow-1"></div>
+            <div class="clean-ambient-glow glow-2"></div>
+        </div>
+
+        <div class="clean-login-container">
+            <!-- Centered Clean Login Card -->
+            <div class="clean-login-card" id="loginCard">
+                
+                <!-- Brand Header: Only Logo and Name SRI MOORTHY TRANSPORT -->
+                <div class="clean-brand-header">
+                    <div class="clean-logo-ring">
+                        <img src="login_logo_circle.png" alt="Sri Moorthy Logo" class="clean-logo-img">
+                    </div>
+                    <h1 class="clean-brand-title">SRI MOORTHY TRANSPORT</h1>
+                    <p class="clean-brand-subtitle">Sign in to continue to your fleet account</p>
+                </div>
+
+                <!-- Alert Banner -->
+                <div class="login-alert" id="loginAlert" style="display:none;" role="alert">
+                    <div class="login-alert-icon" id="loginAlertIcon">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                    </div>
+                    <div class="login-alert-text" id="loginAlertMsg">Invalid credentials</div>
+                </div>
+
+                <!-- Lockout Banner -->
+                <div class="login-lockout-banner" id="loginLockoutBanner" style="display:none;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                    <div>
+                        <div style="font-weight:700;">Security Lockout Active</div>
+                        <div style="font-size:12px;opacity:0.9;">Too many failed attempts. Try again in <strong id="lockoutTimerSeconds">30</strong>s</div>
+                    </div>
+                </div>
+
+                <!-- Form: Browser and Google Password Manager save enabled -->
+                <form id="loginForm" method="POST" action="javascript:void(0)" onsubmit="handleLoginSubmit(event)" autocomplete="on">
+                    <!-- Username Capsule Input -->
+                    <div class="clean-input-group">
+                        <label for="loginUsername" class="clean-input-label">Username</label>
+                        <div class="clean-input-wrap">
+                            <div class="clean-icon-badge" aria-hidden="true">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                                    <circle cx="12" cy="7" r="4"></circle>
+                                </svg>
+                            </div>
+                            <input 
+                                type="text" 
+                                id="loginUsername" 
+                                name="username" 
+                                class="clean-input-field" 
+                                placeholder="Enter username (e.g. moorthy)" 
+                                autocomplete="username" 
+                                autocapitalize="none" 
+                                autocorrect="off" 
+                                spellcheck="false" 
+                                required
+                            >
+                        </div>
+                    </div>
+
+                    <!-- Password Capsule Input -->
+                    <div class="clean-input-group">
+                        <label for="loginPassword" class="clean-input-label">Password</label>
+                        <div class="clean-input-wrap">
+                            <div class="clean-icon-badge" aria-hidden="true">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+                                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                                </svg>
+                            </div>
+                            <input 
+                                type="password" 
+                                id="loginPassword" 
+                                name="password" 
+                                class="clean-input-field" 
+                                placeholder="Enter password" 
+                                autocomplete="current-password" 
+                                required
+                            >
+                            <button 
+                                type="button" 
+                                class="clean-eye-btn" 
+                                id="togglePasswordBtn" 
+                                onclick="togglePasswordVisibility()" 
+                                aria-label="Toggle password visibility" 
+                                title="Show / Hide Password"
+                            >
+                                <svg class="eye-icon-show" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#64748B" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                                <svg class="eye-icon-hide" style="display:none;" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FF6B00" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Options Row -->
+                    <div class="clean-options-row">
+                        <label class="clean-checkbox-label">
+                            <input type="checkbox" id="loginRememberMe" name="remember" checked>
+                            <span class="clean-checkbox-text">Remember me</span>
+                        </label>
+                        <button type="button" class="clean-forgot-btn" onclick="onForgotPasswordClick()">Forgot Password?</button>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <button type="submit" class="clean-submit-btn" id="loginSubmitBtn">
+                        <span class="btn-spinner" id="loginBtnSpinner" style="display:none;"></span>
+                        <span class="btn-text" id="loginBtnText">Sign In to Dashboard</span>
+                        <svg class="btn-arrow-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6">
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                            <polyline points="12 5 19 12 12 19"></polyline>
+                        </svg>
+                    </button>
+                </form>
+
+                <!-- OR Divider -->
+                <div class="clean-or-divider">
+                    <span class="or-line"></span>
+                    <span class="or-label">OR</span>
+                    <span class="or-line"></span>
+                </div>
+
+                <!-- Secondary Action Button -->
+                <button type="button" class="clean-secondary-btn" onclick="onLoginReportsClick()">
+                    <div class="sec-btn-left">
+                        <div class="sec-icon-circle">
+                            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#0C2340" stroke-width="2.2">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                <polyline points="14 2 14 8 20 8"></polyline>
+                                <line x1="16" y1="13" x2="8" y2="13"></line>
+                                <line x1="16" y1="17" x2="8" y2="17"></line>
+                                <polyline points="10 9 9 9 8 9"></polyline>
+                            </svg>
+                        </div>
+                        <span class="sec-btn-label">Fleet Reports &amp; Analytics</span>
+                    </div>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0C2340" stroke-width="2.3">
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                        <polyline points="12 5 19 12 12 19"></polyline>
+                    </svg>
+                </button>
+
+                <!-- Security Trust Footer -->
+                <div class="clean-security-badge">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                    <span>Secure Fleet Portal &bull; Encrypted Session</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
 
     <!-- App Container -->
     <div id="app" class="app-container" style="display:none;">
@@ -80,12 +237,6 @@
                     <span>+ New Bill</span>
                 </button>
 
-                <!-- Dark / Light Mode Switcher -->
-                <button type="button" class="header-btn" id="modeBtn" onclick="toggleThemeMode()" title="Toggle Dark/Light Mode">
-                    <svg class="mode-icon-sun" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
-                    <svg class="mode-icon-moon" style="display:none;" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-                </button>
-
                 <button class="header-btn" id="themeBtn" onclick="toggleThemePicker()" title="Theme Accent Color">
                     <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a7 7 0 0 0-7 7c0 2 1.5 3.5 3 4 1.5.5 2 1 2 2.5 0 .8.7 1.5 1.5 1.5h.5a7 7 0 0 0 0-14z"/><circle cx="8" cy="8" r="1.5" fill="currentColor"/><circle cx="12" cy="6" r="1.5" fill="currentColor"/><circle cx="16" cy="8" r="1.5" fill="currentColor"/></svg>
                 </button>
@@ -93,6 +244,15 @@
                     <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
                     <span class="notif-dot" id="notifDot"></span>
                 </button>
+                <!-- User Profile & Quick Logout -->
+                <div class="header-user-badge" id="headerUserBadge" title="Operator: moorthy (Administrator)">
+                    <span class="user-avatar-circle">M</span>
+                    <span class="user-name-text">moorthy</span>
+                    <button type="button" class="header-logout-btn" onclick="handleLogout()" title="Sign Out & Lock App">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                        <span class="logout-text">Lock</span>
+                    </button>
+                </div>
                 <button class="header-btn menu-toggle-btn" id="menuBtn" onclick="toggleSidebar()" title="Open Navigation Drawer">
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="16" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
                 </button>
@@ -186,10 +346,10 @@
                         <span>Database Engine</span>
                         <strong style="color:var(--text-primary);" id="sidebarDbEngine">Supabase Cloud</strong>
                     </div>
-                    <button type="button" class="sidebar-mode-toggle" onclick="toggleThemeMode()">
-                        <span class="mode-label-text">Obsidian Dark</span>
-                        <span>🌓</span>
-                    </button>
+                    <div style="font-size:11px;color:var(--text-secondary);display:flex;align-items:center;justify-content:space-between;margin-top:8px;">
+                        <span>System Appearance</span>
+                        <strong style="color:var(--text-primary);display:inline-flex;align-items:center;gap:4px;">Titanium Light ☀️</strong>
+                    </div>
                 </div>
                 <div class="sidebar-theme-wrap">
                     <div class="sidebar-theme-title">
@@ -203,6 +363,20 @@
                         <button type="button" class="theme-swatch-btn purple" data-color="purple" onclick="setAppThemeColor('purple')" title="Royal Purple"></button>
                         <button type="button" class="theme-swatch-btn red" data-color="red" onclick="setAppThemeColor('red')" title="Crimson Red"></button>
                     </div>
+                </div>
+                <!-- Sidebar User Profile Card -->
+                <div class="sidebar-user-card" id="sidebarUserCard">
+                    <div class="sidebar-user-info">
+                        <div class="sidebar-user-avatar">M</div>
+                        <div>
+                            <div class="sidebar-user-name">Moorthy</div>
+                            <div class="sidebar-user-role"><span class="badge-dot-online"></span> Admin (Online)</div>
+                        </div>
+                    </div>
+                    <button type="button" class="sidebar-logout-btn" onclick="closeSidebar(); handleLogout();" title="Sign Out & Lock">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                        <span>Sign Out</span>
+                    </button>
                 </div>
                 <div class="sidebar-footer">
                     <p>© 2024 Sri Moorthy Transport</p>
@@ -246,7 +420,7 @@
                             <span class="ticker-sep">•</span>
                             <span class="ticker-item"><span class="ticker-dot green"></span><strong>TN82K1945</strong> DOST+ • Online</span>
                             <span class="ticker-sep">•</span>
-                            <span class="ticker-item"><span class="ticker-dot blue"></span><strong>Fleetocity GPS</strong> 3/3 Linked</span>
+                            <span class="ticker-item"><span class="ticker-dot blue"></span><strong>Monthly Calculations</strong> Active</span>
                             <span class="ticker-sep">•</span>
                             <span class="ticker-item"><span class="ticker-dot orange"></span><strong>Sri Moorthy Transport</strong> Fast Delivery</span>
                             <span class="ticker-sep">•</span>
@@ -256,7 +430,7 @@
                             <span class="ticker-sep">•</span>
                             <span class="ticker-item"><span class="ticker-dot green"></span><strong>TN82K1945</strong> DOST+ • Online</span>
                             <span class="ticker-sep">•</span>
-                            <span class="ticker-item"><span class="ticker-dot blue"></span><strong>Fleetocity GPS</strong> 3/3 Linked</span>
+                            <span class="ticker-item"><span class="ticker-dot blue"></span><strong>Monthly Calculations</strong> Active</span>
                             <span class="ticker-sep">•</span>
                             <span class="ticker-item"><span class="ticker-dot orange"></span><strong>Sri Moorthy Transport</strong> Fast Delivery</span>
                             <span class="ticker-sep">•</span>
@@ -264,35 +438,90 @@
                     </div>
                 </div>
 
-                <!-- Live GPS Banner -->
-                <div class="gps-banner-card">
-                    <div class="gps-banner-left">
-                        <div class="gps-radar-pulse">
-                            <span class="radar-circle radar-ring-1"></span>
-                            <span class="radar-circle radar-ring-2"></span>
-                            <span class="radar-circle radar-ring-3"></span>
-                            <span class="radar-scanner"></span>
-                            <span class="radar-dot"></span>
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="20" y1="12" x2="22" y2="12"/><line x1="2" y1="12" x2="4" y2="12"/></svg>
+                <!-- Monthly Financial Calculation Command Card -->
+                <div class="monthly-calc-card">
+                    <div class="monthly-calc-header">
+                        <div class="monthly-calc-title-group">
+                            <div class="monthly-calc-icon">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/><path d="M8 18h.01"/><path d="M12 18h.01"/><path d="M16 18h.01"/></svg>
+                            </div>
+                            <div>
+                                <div class="monthly-calc-heading-row">
+                                    <h3 id="dashboardMonthHeading">Monthly Financial Calculation</h3>
+                                    <span class="calc-period-pill" id="dashboardMonthPill">Current Month</span>
+                                </div>
+                                <p class="monthly-calc-subtitle" id="dashboardMonthRange">Trip Income, Fuel &amp; Net Fleet Margin Overview</p>
+                            </div>
                         </div>
-                        <div>
-                            <div class="gps-title-row">
-                                <h3>Fleetocity Live GPS</h3>
-                                <span class="live-pill"><span class="live-blink"></span>LIVE TELEMETRY</span>
+                        <div class="monthly-calc-controls">
+                            <div class="month-nav-group">
+                                <button type="button" class="btn-month-nav" onclick="changeDashboardMonth(-1)" title="Previous Month">
+                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+                                    <span>Prev</span>
+                                </button>
+                                <div class="month-select-wrapper">
+                                    <select id="dashboardMonthSelect" onchange="onDashboardMonthSelectChange()" class="month-select-input" aria-label="Select Calculation Month">
+                                        <!-- Populated dynamically -->
+                                    </select>
+                                </div>
+                                <button type="button" class="btn-month-nav" onclick="changeDashboardMonth(1)" title="Next Month">
+                                    <span>Next</span>
+                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+                                </button>
                             </div>
-                            <p class="gps-subtitle">Real-time GPS tracking for TN68C6003, TN68W2419 & TN82K1945</p>
-                            <div class="gps-telemetry-tags">
-                                <span class="tele-tag"><span class="dot-green"></span> 3 Trucks Linked</span>
-                                <span class="tele-tag">🛰️ 9 Satellites Active</span>
-                                <span class="tele-tag">⚡ 1s Refresh Rate</span>
-                            </div>
+                            <button type="button" class="btn-current-month" onclick="resetDashboardToCurrentMonth()" title="Jump to Current Month">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                                <span>This Month</span>
+                            </button>
                         </div>
                     </div>
-                    <div class="gps-banner-right">
-                        <a href="https://app.fleetocity.co.in" target="_blank" rel="noopener noreferrer" class="btn-gps-open" id="openGpsBannerBtn">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
-                            <span>Open GPS Cockpit</span>
-                        </a>
+
+                    <!-- Breakdown Strip: Revenue, Fuel, Salaries, Maintenance, Net Profit -->
+                    <div class="monthly-calc-metrics-grid">
+                        <div class="calc-metric-box metric-income">
+                            <div class="calc-metric-top">
+                                <span class="calc-metric-label">Monthly Gross Income</span>
+                                <span class="calc-metric-badge income">Bills &amp; Trips</span>
+                            </div>
+                            <div class="calc-metric-value" id="calcGrossIncome">₹0</div>
+                            <div class="calc-metric-sub" id="calcBillsCount">0 Trips (0 Local)</div>
+                        </div>
+
+                        <div class="calc-metric-box metric-fuel">
+                            <div class="calc-metric-top">
+                                <span class="calc-metric-label">Monthly Fuel Expense</span>
+                                <span class="calc-metric-badge fuel">Diesel</span>
+                            </div>
+                            <div class="calc-metric-value" id="calcFuelExpense">₹0</div>
+                            <div class="calc-metric-sub" id="calcFuelLitres">0.0 Litres Filled</div>
+                        </div>
+
+                        <div class="calc-metric-box metric-salary">
+                            <div class="calc-metric-top">
+                                <span class="calc-metric-label">Monthly Driver Salary</span>
+                                <span class="calc-metric-badge salary">Salaries</span>
+                            </div>
+                            <div class="calc-metric-value" id="calcSalaryExpense">₹0</div>
+                            <div class="calc-metric-sub" id="calcSalaryCount">0 Salary Entries</div>
+                        </div>
+
+                        <div class="calc-metric-box metric-service">
+                            <div class="calc-metric-top">
+                                <span class="calc-metric-label">Monthly Maintenance</span>
+                                <span class="calc-metric-badge service">Services</span>
+                            </div>
+                            <div class="calc-metric-value" id="calcServiceExpense">₹0</div>
+                            <div class="calc-metric-sub" id="calcServiceCount">0 Service Records</div>
+                        </div>
+
+                        <div class="calc-metric-box metric-profit" id="calcNetProfitBox">
+                            <div class="calc-metric-top">
+                                <span class="calc-metric-label">Net Monthly Profit</span>
+                                <span class="calc-metric-badge profit" id="calcMarginBadge">+0%</span>
+                            </div>
+                            <div class="calc-metric-value" id="calcNetProfit">₹0</div>
+                            <div class="calc-metric-sub" id="calcProfitSummary">Income − All Expenses</div>
+                        </div>
                     </div>
                 </div>
 
@@ -301,9 +530,9 @@
                     <div class="stat-card-app glow-orange">
                         <div class="stat-card-top-row">
                             <div class="stat-card-icon orange">
-                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
                             </div>
-                            <span class="stat-trend-chip green">100% Ready</span>
+                            <span class="stat-trend-chip green">Fleet Active</span>
                         </div>
                         <div class="stat-card-info">
                             <span class="stat-card-label">Total Vehicles</span>
@@ -318,10 +547,10 @@
                             <div class="stat-card-icon green">
                                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
                             </div>
-                            <span class="stat-trend-chip blue">Active</span>
+                            <span class="stat-trend-chip blue" id="dashboardBillsPill">Month</span>
                         </div>
                         <div class="stat-card-info">
-                            <span class="stat-card-label">Total Bills</span>
+                            <span class="stat-card-label">Monthly Bills</span>
                             <span class="stat-card-value" id="totalBills">0</span>
                         </div>
                         <div class="stat-progress-track">
@@ -333,10 +562,10 @@
                             <div class="stat-card-icon blue">
                                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
                             </div>
-                            <span class="stat-trend-chip orange">Live</span>
+                            <span class="stat-trend-chip orange">Income</span>
                         </div>
                         <div class="stat-card-info">
-                            <span class="stat-card-label">Revenue</span>
+                            <span class="stat-card-label">Monthly Revenue</span>
                             <span class="stat-card-value" id="totalRevenue">₹0</span>
                         </div>
                         <div class="stat-progress-track">
@@ -348,10 +577,10 @@
                             <div class="stat-card-icon purple">
                                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 22V6a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v16"/><path d="M13 10h4a2 2 0 0 1 2 2v8"/><line x1="3" y1="22" x2="23" y2="22"/></svg>
                             </div>
-                            <span class="stat-trend-chip purple">Tracked</span>
+                            <span class="stat-trend-chip purple">Diesel</span>
                         </div>
                         <div class="stat-card-info">
-                            <span class="stat-card-label">Fuel Cost</span>
+                            <span class="stat-card-label">Monthly Fuel Cost</span>
                             <span class="stat-card-value" id="totalFuelCost">₹0</span>
                         </div>
                         <div class="stat-progress-track">
@@ -366,7 +595,7 @@
                             <span class="stat-trend-chip green" id="netProfitMarginBadge">+0% Margin</span>
                         </div>
                         <div class="stat-card-info">
-                            <span class="stat-card-label">Net Profit</span>
+                            <span class="stat-card-label">Monthly Net Profit</span>
                             <span class="stat-card-value" id="totalNetProfit" style="color:var(--green, #10b981);">₹0</span>
                         </div>
                         <div class="stat-progress-track">
@@ -395,17 +624,13 @@
                             <div class="qa-icon green"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 22V6a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v16"/><path d="M13 10h4a2 2 0 0 1 2 2v8"/><line x1="3" y1="22" x2="23" y2="22"/></svg></div>
                             <span>Add Fuel</span>
                         </button>
-                        <a href="https://app.fleetocity.co.in" target="_blank" rel="noopener noreferrer" class="quick-action-btn" title="Open Fleetocity GPS Live Tracking" style="text-decoration:none;">
-                            <div class="qa-icon red"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="20" y1="12" x2="22" y2="12"/><line x1="2" y1="12" x2="4" y2="12"/></svg></div>
-                            <span>Live GPS</span>
-                        </a>
-                        <button class="quick-action-btn" onclick="navigateTo('vehicles')">
-                            <div class="qa-icon blue"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></div>
-                            <span>Vehicles</span>
-                        </button>
-                        <button class="quick-action-btn" onclick="navigateTo('reports')">
+                        <button class="quick-action-btn" onclick="navigateTo('reports')" title="View Monthly Financial Analytics">
                             <div class="qa-icon purple"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>
-                            <span>Reports</span>
+                            <span>Monthly Analytics</span>
+                        </button>
+                        <button class="quick-action-btn" onclick="navigateTo('vehicles')">
+                            <div class="qa-icon blue"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></div>
+                            <span>Vehicles</span>
                         </button>
                         <button class="quick-action-btn" onclick="openSupabaseModal()">
                             <div class="qa-icon teal"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M21.362 9.354H12V.396a.396.396 0 0 0-.716-.234L.362 14.25a.396.396 0 0 0 .316.64H12v8.71a.396.396 0 0 0 .716.234l10.922-14.088a.396.396 0 0 0-.276-.392z"/></svg></div>
@@ -803,6 +1028,23 @@
                             <input type="date" id="billDate" required>
                         </div>
                     </div>
+                    <!-- Local Income Trip Checkbox - Directly After Bill Number & Date -->
+                    <div class="bill-options-card bill-local-income-card" style="margin-top:2px;margin-bottom:14px;background:#FFFBEB;border:1.5px solid #FDE68A;border-radius:10px;">
+                        <div class="bill-option-row" style="margin-bottom:0;">
+                            <label class="bill-custom-check" for="isLocalIncome">
+                                <input type="checkbox" id="isLocalIncome" onchange="onLocalIncomeTripToggle()">
+                                <span class="check-box-indicator"></span>
+                                <div class="check-text-wrap">
+                                    <div class="check-title-row">
+                                        <span class="check-title" style="color:#92400E;font-weight:700;">Local Income Trip</span>
+                                        <span class="chip-local-trip">⚡ Local Trip</span>
+                                    </div>
+                                    <span class="check-sub" style="color:#B45309;">Hides customer details &amp; accounts trip as direct local income</span>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
                     <div class="form-group">
                         <label>Vehicle</label>
                         <select id="billVehicle" required>
@@ -827,34 +1069,157 @@
 
                     <div class="form-row">
                         <div class="form-group">
-                            <label>From Location</label>
-                            <input type="text" id="fromLocation" placeholder="Pickup location" required>
+                            <label for="fromLocation">From Location <span style="font-size:11px;color:var(--text-muted);">(Main: Kumbakonam)</span></label>
+                            <select id="fromLocation" required onchange="onFromLocationChange()">
+                                <optgroup label="📍 Main Station (Kumbakonam)">
+                                    <option value="Kumbakonam" selected>Kumbakonam</option>
+                                    <option value="Kumbakonam (Local / Town)">Kumbakonam (Local / Town)</option>
+                                    <option value="Kumbakonam (Bypass)">Kumbakonam (Bypass)</option>
+                                    <option value="Kumbakonam (Railway Station)">Kumbakonam (Railway Station)</option>
+                                </optgroup>
+                                <optgroup label="🌾 Delta &amp; Nearby Stations">
+                                    <option value="Thanjavur">Thanjavur</option>
+                                    <option value="Trichy">Trichy</option>
+                                    <option value="Mayiladuthurai">Mayiladuthurai</option>
+                                    <option value="Tiruvarur">Tiruvarur</option>
+                                    <option value="Nagapattinam">Nagapattinam</option>
+                                    <option value="Karaikal">Karaikal</option>
+                                    <option value="Mannargudi">Mannargudi</option>
+                                    <option value="Pattukkottai">Pattukkottai</option>
+                                    <option value="Perambalur">Perambalur</option>
+                                    <option value="Ariyalur">Ariyalur</option>
+                                    <option value="Pudukkottai">Pudukkottai</option>
+                                    <option value="Sirkazhi">Sirkazhi</option>
+                                    <option value="Chidambaram">Chidambaram</option>
+                                    <option value="Jayankondam">Jayankondam</option>
+                                    <option value="Needamangalam">Needamangalam</option>
+                                </optgroup>
+                                <optgroup label="🏙️ Major Tamil Nadu Stations">
+                                    <option value="Chennai">Chennai</option>
+                                    <option value="Madurai">Madurai</option>
+                                    <option value="Coimbatore">Coimbatore</option>
+                                    <option value="Salem">Salem</option>
+                                    <option value="Tiruppur">Tiruppur</option>
+                                    <option value="Erode">Erode</option>
+                                    <option value="Karur">Karur</option>
+                                    <option value="Dindigul">Dindigul</option>
+                                    <option value="Namakkal">Namakkal</option>
+                                    <option value="Villupuram">Villupuram</option>
+                                    <option value="Cuddalore">Cuddalore</option>
+                                    <option value="Tirunelveli">Tirunelveli</option>
+                                    <option value="Tuticorin">Tuticorin</option>
+                                    <option value="Kanyakumari">Kanyakumari</option>
+                                    <option value="Nagercoil">Nagercoil</option>
+                                    <option value="Vellore">Vellore</option>
+                                    <option value="Kanchipuram">Kanchipuram</option>
+                                    <option value="Tiruvannamalai">Tiruvannamalai</option>
+                                    <option value="Hosur">Hosur</option>
+                                    <option value="Krishnagiri">Krishnagiri</option>
+                                    <option value="Dharmapuri">Dharmapuri</option>
+                                    <option value="Sivakasi">Sivakasi</option>
+                                    <option value="Virudhunagar">Virudhunagar</option>
+                                    <option value="Theni">Theni</option>
+                                    <option value="Ramanathapuram">Ramanathapuram</option>
+                                    <option value="Sivagangai">Sivagangai</option>
+                                    <option value="Pollachi">Pollachi</option>
+                                    <option value="Mettupalayam">Mettupalayam</option>
+                                    <option value="Ooty">Ooty</option>
+                                </optgroup>
+                                <optgroup label="🌐 Inter-State &amp; Other Hubs">
+                                    <option value="Pondicherry">Pondicherry</option>
+                                    <option value="Bengaluru">Bengaluru</option>
+                                    <option value="Hyderabad">Hyderabad</option>
+                                    <option value="Kochi">Kochi</option>
+                                    <option value="Trivandrum">Trivandrum</option>
+                                    <option value="Vijayawada">Vijayawada</option>
+                                    <option value="Mumbai">Mumbai</option>
+                                </optgroup>
+                                <optgroup label="✏️ Custom Option">
+                                    <option value="OTHER">Other Station (Type Below)...</option>
+                                </optgroup>
+                            </select>
+                            <div id="fromLocationCustomWrap" style="display:none;margin-top:8px;">
+                                <input type="text" id="fromLocationCustom" placeholder="Enter custom pickup location / address">
+                            </div>
                         </div>
                         <div class="form-group">
-                            <label>To Location</label>
-                            <input type="text" id="toLocation" placeholder="Delivery location" required>
+                            <label for="toLocation">To Location <span style="font-size:11px;color:var(--text-muted);">(Main: Kumbakonam)</span></label>
+                            <select id="toLocation" required onchange="onToLocationChange()">
+                                <optgroup label="📍 Main Station (Kumbakonam)">
+                                    <option value="Kumbakonam" selected>Kumbakonam</option>
+                                    <option value="Kumbakonam (Local / Town)">Kumbakonam (Local / Town)</option>
+                                    <option value="Kumbakonam (Bypass)">Kumbakonam (Bypass)</option>
+                                    <option value="Kumbakonam (Railway Station)">Kumbakonam (Railway Station)</option>
+                                </optgroup>
+                                <optgroup label="🌾 Delta &amp; Nearby Stations">
+                                    <option value="Thanjavur">Thanjavur</option>
+                                    <option value="Trichy">Trichy</option>
+                                    <option value="Mayiladuthurai">Mayiladuthurai</option>
+                                    <option value="Tiruvarur">Tiruvarur</option>
+                                    <option value="Nagapattinam">Nagapattinam</option>
+                                    <option value="Karaikal">Karaikal</option>
+                                    <option value="Mannargudi">Mannargudi</option>
+                                    <option value="Pattukkottai">Pattukkottai</option>
+                                    <option value="Perambalur">Perambalur</option>
+                                    <option value="Ariyalur">Ariyalur</option>
+                                    <option value="Pudukkottai">Pudukkottai</option>
+                                    <option value="Sirkazhi">Sirkazhi</option>
+                                    <option value="Chidambaram">Chidambaram</option>
+                                    <option value="Jayankondam">Jayankondam</option>
+                                    <option value="Needamangalam">Needamangalam</option>
+                                </optgroup>
+                                <optgroup label="🏙️ Major Tamil Nadu Stations">
+                                    <option value="Chennai">Chennai</option>
+                                    <option value="Madurai">Madurai</option>
+                                    <option value="Coimbatore">Coimbatore</option>
+                                    <option value="Salem">Salem</option>
+                                    <option value="Tiruppur">Tiruppur</option>
+                                    <option value="Erode">Erode</option>
+                                    <option value="Karur">Karur</option>
+                                    <option value="Dindigul">Dindigul</option>
+                                    <option value="Namakkal">Namakkal</option>
+                                    <option value="Villupuram">Villupuram</option>
+                                    <option value="Cuddalore">Cuddalore</option>
+                                    <option value="Tirunelveli">Tirunelveli</option>
+                                    <option value="Tuticorin">Tuticorin</option>
+                                    <option value="Kanyakumari">Kanyakumari</option>
+                                    <option value="Nagercoil">Nagercoil</option>
+                                    <option value="Vellore">Vellore</option>
+                                    <option value="Kanchipuram">Kanchipuram</option>
+                                    <option value="Tiruvannamalai">Tiruvannamalai</option>
+                                    <option value="Hosur">Hosur</option>
+                                    <option value="Krishnagiri">Krishnagiri</option>
+                                    <option value="Dharmapuri">Dharmapuri</option>
+                                    <option value="Sivakasi">Sivakasi</option>
+                                    <option value="Virudhunagar">Virudhunagar</option>
+                                    <option value="Theni">Theni</option>
+                                    <option value="Ramanathapuram">Ramanathapuram</option>
+                                    <option value="Sivagangai">Sivagangai</option>
+                                    <option value="Pollachi">Pollachi</option>
+                                    <option value="Mettupalayam">Mettupalayam</option>
+                                    <option value="Ooty">Ooty</option>
+                                </optgroup>
+                                <optgroup label="🌐 Inter-State &amp; Other Hubs">
+                                    <option value="Pondicherry">Pondicherry</option>
+                                    <option value="Bengaluru">Bengaluru</option>
+                                    <option value="Hyderabad">Hyderabad</option>
+                                    <option value="Kochi">Kochi</option>
+                                    <option value="Trivandrum">Trivandrum</option>
+                                    <option value="Vijayawada">Vijayawada</option>
+                                    <option value="Mumbai">Mumbai</option>
+                                </optgroup>
+                                <optgroup label="✏️ Custom Option">
+                                    <option value="OTHER">Other Station (Type Below)...</option>
+                                </optgroup>
+                            </select>
+                            <div id="toLocationCustomWrap" style="display:none;margin-top:8px;">
+                                <input type="text" id="toLocationCustom" placeholder="Enter custom delivery location / address">
+                            </div>
                         </div>
                     </div>
                     <div class="form-group">
                         <label>Goods Description</label>
                         <textarea id="goodsDesc" placeholder="Describe the goods being transported" rows="2"></textarea>
-                    </div>
-                    
-                    <!-- Trip Classification Card (Local Income Option) -->
-                    <div class="bill-options-card">
-                        <div class="bill-option-row" style="margin-bottom:0;">
-                            <label class="bill-custom-check" for="isLocalIncome">
-                                <input type="checkbox" id="isLocalIncome" onchange="onLocalIncomeTripToggle()">
-                                <span class="check-box-indicator"></span>
-                                <div class="check-text-wrap">
-                                    <div class="check-title-row">
-                                        <span class="check-title">Local Income Trip</span>
-                                        <span class="chip-local-trip">⚡ Local Trip</span>
-                                    </div>
-                                    <span class="check-sub">Hides customer details & accounts trip as direct local income</span>
-                                </div>
-                            </label>
-                        </div>
                     </div>
                     
                     <!-- Line Items -->
@@ -865,10 +1230,32 @@
                         </div>
                         <div id="lineItems">
                             <div class="line-item" data-index="0">
-                                <input type="text" placeholder="Description (e.g., Transport Charge)" class="item-desc" required>
-                                <input type="number" placeholder="Amount" class="item-amount" min="0" step="0.01" required oninput="calculateBillTotal()">
-                                <button type="button" class="line-item-remove" onclick="removeLineItem(this)">✕</button>
+                                <div class="item-desc-wrap">
+                                    <select class="item-desc-select" onchange="handleChargeSelectChange(this)" aria-label="Charge Description">
+                                        <option value="Local Delivery" selected>Local Delivery</option>
+                                        <option value="Transport Charge">Transport Charge</option>
+                                        <option value="Loading &amp; Unloading Charge">Loading &amp; Unloading Charge</option>
+                                        <option value="Halting / Detention Charge">Halting / Detention Charge</option>
+                                        <option value="Toll &amp; Fastag Charge">Toll &amp; Fastag Charge</option>
+                                        <option value="Driver Batta / Allowance">Driver Batta / Allowance</option>
+                                        <option value="Fuel Surcharge">Fuel Surcharge</option>
+                                        <option value="OTHER">✏️ Other / Custom Description...</option>
+                                    </select>
+                                    <input type="text" placeholder="Type custom charge description..." class="item-desc-custom" style="display:none;" oninput="handleChargeCustomInput(this)">
+                                    <input type="hidden" class="item-desc" value="Local Delivery">
+                                </div>
+                                <input type="number" placeholder="Amount (₹)" class="item-amount" min="0" step="0.01" required oninput="calculateBillTotal()">
+                                <button type="button" class="line-item-remove" onclick="removeLineItem(this)" title="Remove Charge">✕</button>
                             </div>
+                        </div>
+                        <!-- Quick Charge Preset Chips -->
+                        <div class="charge-quick-chips">
+                            <span class="quick-chips-label">⚡ Quick Fill:</span>
+                            <button type="button" class="charge-chip-btn" onclick="applyQuickChargePreset('Local Delivery')">Local Delivery</button>
+                            <button type="button" class="charge-chip-btn" onclick="applyQuickChargePreset('Transport Charge')">Transport Charge</button>
+                            <button type="button" class="charge-chip-btn" onclick="applyQuickChargePreset('Loading &amp; Unloading Charge')">Loading/Unloading</button>
+                            <button type="button" class="charge-chip-btn" onclick="applyQuickChargePreset('Halting / Detention Charge')">Halting</button>
+                            <button type="button" class="charge-chip-btn" onclick="applyQuickChargePreset('Toll &amp; Fastag Charge')">Toll</button>
                         </div>
                     </div>
 
@@ -1693,16 +2080,16 @@
                         <div class="apk-option-card">
                             <div class="apk-opt-header">
                                 <div class="apk-opt-title">
-                                    <span class="apk-badge secondary">OFFLINE STUDIO</span>
-                                    <h4>Included Android Project Source</h4>
+                                    <span class="apk-badge secondary">INSTANT PWA</span>
+                                    <h4>Add to Phone Home Screen</h4>
                                 </div>
-                                <span class="apk-cost">PRE-BUILT</span>
+                                <span class="apk-cost">FREE</span>
                             </div>
-                            <p style="font-size:12px;color:var(--text-secondary);margin:6px 0 12px 0;">We have already created the complete native Android project in this workspace under <code>android/</code> with offline assets and camera permissions.</p>
+                            <p style="font-size:12px;color:var(--text-secondary);margin:6px 0 12px 0;">Run this app directly on any phone without downloading an APK file. Supports full offline caching, camera permissions, and fast launch.</p>
                             <div class="apk-steps-mini">
-                                <div>1. Open folder <code>c:\Users\Kubera\OneDrive\Desktop\app\android</code> in Android Studio</div>
-                                <div>2. Click <strong>Build &rarr; Build Bundle(s) / APK(s) &rarr; Build APK(s)</strong></div>
-                                <div>3. Install the generated <code>app-debug.apk</code> directly on any phone!</div>
+                                <div>1. Open this page in Chrome / Safari on any mobile phone</div>
+                                <div>2. Tap browser menu &rarr; <strong>Add to Home Screen / Install App</strong></div>
+                                <div>3. Open directly from your home screen as a standalone app!</div>
                             </div>
                         </div>
                     </div>
@@ -1734,6 +2121,6 @@
     <!-- Toast -->
     <div class="toast-container" id="toastContainer"></div>
 
-    <script src="app.js?v=32"></script>
+    <script src="app.js?v=46"></script>
 </body>
 </html>

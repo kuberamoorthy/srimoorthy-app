@@ -1,10 +1,13 @@
-const CACHE_NAME = 'sm-fleet-v21';
+const CACHE_NAME = 'sm-fleet-v22';
 const urlsToCache = [
     '/',
     '/index.html',
     '/style.css',
     '/app.js',
     '/manifest.json',
+    '/login_bg.jpg',
+    '/login_logo_circle.png',
+    '/logo.png',
     'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Outfit:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap',
     'https://mr-vishal-dev.github.io/kuberatravels/logo.png'
 ];

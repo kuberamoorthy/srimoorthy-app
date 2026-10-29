@@ -322,40 +322,35 @@ function getVehicleDisplay(v) {
     return `<span style="font-weight:700;margin-right:6px;">${v.name}</span><span class="plate-hsrp sm"><span class="ind-tag">IND</span>${v.number}</span>`;
 }
 
-// ===== THEME MODE SYSTEM (Obsidian Dark / Titanium Light) =====
+// ===== THEME MODE SYSTEM (Titanium Light Exclusive) =====
 function initThemeMode() {
-    const savedMode = localStorage.getItem('sm_theme_mode') || 'dark'; // Default to executive Obsidian Dark
-    setThemeMode(savedMode, false);
+    // Enforce clean Titanium Light theme exclusively
+    setThemeMode('light', false);
 }
 
-function setThemeMode(mode, showToastMsg = true) {
-    document.documentElement.setAttribute('data-mode', mode);
-    document.body.classList.toggle('dark-mode', mode === 'dark');
-    localStorage.setItem('sm_theme_mode', mode);
+function setThemeMode(mode = 'light', showToastMsg = false) {
+    document.documentElement.setAttribute('data-mode', 'light');
+    document.body.classList.remove('dark-mode');
+    document.body.classList.add('light-mode');
+    try {
+        localStorage.setItem('sm_theme_mode', 'light');
+    } catch (_) {}
 
     const sunIcons = document.querySelectorAll('.mode-icon-sun');
     const moonIcons = document.querySelectorAll('.mode-icon-moon');
     const modeLabels = document.querySelectorAll('.mode-label-text');
 
-    if (mode === 'dark') {
-        sunIcons.forEach(i => i.style.display = 'inline-block');
-        moonIcons.forEach(i => i.style.display = 'none');
-        modeLabels.forEach(l => l.textContent = 'Obsidian Dark');
-    } else {
-        sunIcons.forEach(i => i.style.display = 'none');
-        moonIcons.forEach(i => i.style.display = 'inline-block');
-        modeLabels.forEach(l => l.textContent = 'Titanium Light');
-    }
+    sunIcons.forEach(i => i.style.display = 'none');
+    moonIcons.forEach(i => i.style.display = 'none');
+    modeLabels.forEach(l => l.textContent = 'Titanium Light');
 
     if (showToastMsg && typeof showToast === 'function') {
-        showToast(mode === 'dark' ? '🌙 Obsidian Fleet Mode Active' : '☀️ Titanium Studio Mode Active', 'info');
+        showToast('☀️ Titanium Light Mode Active', 'info');
     }
 }
 
 function toggleThemeMode() {
-    const currentMode = document.documentElement.getAttribute('data-mode') || 'dark';
-    const newMode = currentMode === 'dark' ? 'light' : 'dark';
-    setThemeMode(newMode, true);
+    setThemeMode('light', false);
 }
 
 // ===== LIVE REALTIME CLOCK & STATUS =====
@@ -383,9 +378,10 @@ const COMMAND_ITEMS = [
     { id: 'act-bill', title: 'Create New Bill', desc: 'Quick dispatch new customer invoice', icon: '➕', category: 'Quick Action', action: () => { navigateTo('billing'); setTimeout(openBillModal, 200); } },
     { id: 'act-fuel', title: 'Log Diesel Fuel', desc: 'Add fuel fill-up, liters, rate and odometer', icon: '⛽', category: 'Quick Action', action: () => { navigateTo('fuel'); setTimeout(openFuelModal, 200); } },
     { id: 'act-gps', title: 'Launch Fleet Live GPS', desc: 'Open Fleetocity satellite cockpit in new window', icon: '🛰️', category: 'Telemetry', action: () => window.open('https://app.fleetocity.co.in', '_blank') },
-    { id: 'act-mode', title: 'Toggle Obsidian Dark / Titanium Light', desc: 'Switch executive theme appearance', icon: '🌓', category: 'Appearance', action: toggleThemeMode },
+    { id: 'act-theme', title: 'Theme Accent Colors', desc: 'Customize fleet accent colors (Orange, Blue, Green, Purple, Red)', icon: '🎨', category: 'Appearance', action: toggleThemePicker },
     { id: 'act-supa', title: 'Supabase Cloud Database Settings', desc: 'Manage cloud URL, anon key and database tables', icon: '☁️', category: 'System', action: openSupabaseModal },
     { id: 'act-apk', title: 'Install PWA or Export APK', desc: 'Install app to device home screen or build Android APK', icon: '📱', category: 'System', action: openInstallModal },
+    { id: 'act-logout', title: 'Lock Application & Sign Out', desc: 'Securely lock the fleet app and return to login screen', icon: '🔒', category: 'Security', action: () => handleLogout(false) },
     { id: 'act-reset', title: 'Reset Database (Clear All Data)', desc: 'Permanently wipe bills & fuel logs to a clean fresh state', icon: '🗑️', category: 'Danger Zone', action: resetDatabase }
 ];
 
@@ -393,6 +389,7 @@ let selectedCommandIndex = 0;
 let filteredCommands = [...COMMAND_ITEMS];
 
 function openCommandPalette() {
+    if (!isUserAuthenticated()) return;
     const overlay = document.getElementById('commandPaletteOverlay');
     const input = document.getElementById('commandPaletteInput');
     if (!overlay || !input) return;
@@ -547,56 +544,504 @@ function toggleThemePicker() {
     }
 }
 
-// ===== SPLASH SCREEN =====
+// ===== SECURE ENTERPRISE AUTHENTICATION SYSTEM =====
+const AUTH_CONFIG = {
+    username: 'moorthy',
+    passwordHash: '6ccfc89bd2a5d5a2cc30ad90667287c4259a3efe870c82769364134b6f31f4fd', // SHA-256 of 'moorthy:kum@12345'
+    passwordFallback: 'kum@12345',
+    maxAttempts: 5,
+    lockoutDurationMs: 30000, // 30 seconds lockout cooldown
+    sessionDurationDays: 7, // 7 days persistent if Remember Me is checked
+    inactivityTimeoutMs: 30 * 60 * 1000 // 30 minutes auto-lock
+};
+
+let lockoutTimerInterval = null;
+let lastUserActivityTime = Date.now();
+let inactivityInterval = null;
+
+// Cryptographic SHA-256 helper with graceful fallback
+async function sha256Hex(str) {
+    try {
+        if (window.crypto && window.crypto.subtle && window.TextEncoder) {
+            const encoder = new TextEncoder();
+            const data = encoder.encode(str);
+            const hashBuffer = await window.crypto.subtle.digest('SHA-256', data);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+    } catch (e) {
+        console.warn('[Security] WebCrypto digest fallback:', e);
+    }
+    return null;
+}
+
+// Session Management
+function getAuthSession() {
+    try {
+        const local = localStorage.getItem('sm_auth_session');
+        if (local) {
+            const parsed = JSON.parse(local);
+            if (parsed && parsed.token && parsed.expiresAt > Date.now() && (parsed.username || '').toLowerCase() === AUTH_CONFIG.username.toLowerCase()) {
+                return parsed;
+            }
+            localStorage.removeItem('sm_auth_session');
+        }
+
+        const session = sessionStorage.getItem('sm_auth_session');
+        if (session) {
+            const parsed = JSON.parse(session);
+            if (parsed && parsed.token && parsed.expiresAt > Date.now() && (parsed.username || '').toLowerCase() === AUTH_CONFIG.username.toLowerCase()) {
+                return parsed;
+            }
+            sessionStorage.removeItem('sm_auth_session');
+        }
+    } catch (err) {
+        console.error('[Security] Error reading auth session:', err);
+    }
+    return null;
+}
+
+function isUserAuthenticated() {
+    return !!getAuthSession();
+}
+
+function saveAuthSession(sessionData, rememberMe) {
+    try {
+        const payload = JSON.stringify(sessionData);
+        if (rememberMe) {
+            localStorage.setItem('sm_auth_session', payload);
+            sessionStorage.removeItem('sm_auth_session');
+        } else {
+            sessionStorage.setItem('sm_auth_session', payload);
+            localStorage.removeItem('sm_auth_session');
+        }
+    } catch (e) {
+        console.error('[Security] Failed to save auth session:', e);
+    }
+}
+
+function clearAuthSession() {
+    try {
+        localStorage.removeItem('sm_auth_session');
+        sessionStorage.removeItem('sm_auth_session');
+    } catch (_) {}
+}
+
+// Failed Attempts & Brute-Force Rate Limiting
+function getFailedAttempts() {
+    try {
+        return parseInt(sessionStorage.getItem('sm_failed_login_attempts') || '0', 10);
+    } catch {
+        return 0;
+    }
+}
+
+function setFailedAttempts(count) {
+    try {
+        sessionStorage.setItem('sm_failed_login_attempts', String(count));
+    } catch (_) {}
+}
+
+function getLockoutEndTime() {
+    try {
+        return parseInt(sessionStorage.getItem('sm_login_lockout_until') || '0', 10);
+    } catch {
+        return 0;
+    }
+}
+
+function setLockoutEndTime(timestamp) {
+    try {
+        sessionStorage.setItem('sm_login_lockout_until', String(timestamp));
+    } catch (_) {}
+}
+
+function checkAndApplyLockout() {
+    const lockoutUntil = getLockoutEndTime();
+    const now = Date.now();
+    const banner = document.getElementById('loginLockoutBanner');
+    const timerSpan = document.getElementById('lockoutTimerSeconds');
+    const submitBtn = document.getElementById('loginSubmitBtn');
+    const userInput = document.getElementById('loginUsername');
+    const passInput = document.getElementById('loginPassword');
+
+    if (lockoutUntil > now) {
+        const remainingSeconds = Math.ceil((lockoutUntil - now) / 1000);
+        if (banner) banner.style.display = 'flex';
+        if (timerSpan) timerSpan.textContent = remainingSeconds;
+        if (submitBtn) submitBtn.disabled = true;
+        if (userInput) userInput.disabled = true;
+        if (passInput) passInput.disabled = true;
+
+        if (!lockoutTimerInterval) {
+            lockoutTimerInterval = setInterval(() => {
+                const updatedNow = Date.now();
+                const rem = Math.ceil((lockoutUntil - updatedNow) / 1000);
+                if (rem <= 0) {
+                    clearInterval(lockoutTimerInterval);
+                    lockoutTimerInterval = null;
+                    setLockoutEndTime(0);
+                    setFailedAttempts(0);
+                    if (banner) banner.style.display = 'none';
+                    if (submitBtn) submitBtn.disabled = false;
+                    if (userInput) userInput.disabled = false;
+                    if (passInput) passInput.disabled = false;
+                    hideLoginAlert();
+                } else {
+                    if (timerSpan) timerSpan.textContent = rem;
+                }
+            }, 1000);
+        }
+        return true;
+    } else {
+        if (banner) banner.style.display = 'none';
+        if (submitBtn) submitBtn.disabled = false;
+        if (userInput) userInput.disabled = false;
+        if (passInput) passInput.disabled = false;
+        if (lockoutTimerInterval) {
+            clearInterval(lockoutTimerInterval);
+            lockoutTimerInterval = null;
+        }
+        return false;
+    }
+}
+
+// UI Alert & Shake Helpers
+function showLoginAlert(msg) {
+    const alertEl = document.getElementById('loginAlert');
+    const msgEl = document.getElementById('loginAlertMsg');
+    if (alertEl && msgEl) {
+        msgEl.textContent = msg;
+        alertEl.style.display = 'flex';
+    }
+    const card = document.getElementById('loginCard');
+    if (card) {
+        card.classList.remove('shake');
+        void card.offsetWidth; // trigger reflow
+        card.classList.add('shake');
+    }
+}
+
+function hideLoginAlert() {
+    const alertEl = document.getElementById('loginAlert');
+    if (alertEl) alertEl.style.display = 'none';
+}
+
+function togglePasswordVisibility() {
+    const passInput = document.getElementById('loginPassword');
+    const showIcon = document.querySelector('.eye-icon-show');
+    const hideIcon = document.querySelector('.eye-icon-hide');
+    if (!passInput) return;
+
+    if (passInput.type === 'password') {
+        passInput.type = 'text';
+        if (showIcon) showIcon.style.display = 'none';
+        if (hideIcon) hideIcon.style.display = 'inline-block';
+    } else {
+        passInput.type = 'password';
+        if (showIcon) showIcon.style.display = 'inline-block';
+        if (hideIcon) hideIcon.style.display = 'none';
+    }
+}
+
+function onForgotPasswordClick() {
+    showToast('Password Assistance: Default operator password is provided by Fleet Control. Call: 8940481999', 'info');
+}
+window.onForgotPasswordClick = onForgotPasswordClick;
+
+function onLoginReportsClick() {
+    showToast('Please sign in with operator credentials to view complete fleet reports & analytics 📊', 'info');
+}
+window.onLoginReportsClick = onLoginReportsClick;
+
+// Login Submission Handler
+async function handleLoginSubmit(event) {
+    if (event) event.preventDefault();
+
+    if (checkAndApplyLockout()) {
+        showLoginAlert('Too many failed attempts. Account temporarily locked for security.');
+        return;
+    }
+
+    const usernameInput = document.getElementById('loginUsername');
+    const passwordInput = document.getElementById('loginPassword');
+    const rememberMeInput = document.getElementById('loginRememberMe');
+    const submitBtn = document.getElementById('loginSubmitBtn');
+    const spinner = document.getElementById('loginBtnSpinner');
+    const btnText = document.getElementById('loginBtnText');
+
+    const enteredUsername = (usernameInput ? usernameInput.value : '').trim();
+    const enteredPassword = passwordInput ? passwordInput.value : '';
+    const rememberMe = rememberMeInput ? rememberMeInput.checked : true;
+
+    if (!enteredUsername || !enteredPassword) {
+        showLoginAlert('Please enter both username and password.');
+        if (!enteredUsername && usernameInput) usernameInput.focus();
+        else if (passwordInput) passwordInput.focus();
+        return;
+    }
+
+    // Set UI loading state
+    if (submitBtn) submitBtn.disabled = true;
+    if (spinner) spinner.style.display = 'inline-block';
+    if (btnText) btnText.textContent = 'Verifying Credentials...';
+
+    // Verify credentials
+    let isValid = false;
+    const isUserMatch = enteredUsername.toLowerCase() === AUTH_CONFIG.username.toLowerCase();
+
+    if (isUserMatch) {
+        // Direct password match check
+        if (enteredPassword === AUTH_CONFIG.passwordFallback) {
+            isValid = true;
+        } else {
+            // SHA-256 hash validation
+            const computedHash = await sha256Hex(`moorthy:${enteredPassword}`);
+            if (computedHash === AUTH_CONFIG.passwordHash) {
+                isValid = true;
+            }
+        }
+    }
+
+    if (!isValid) {
+        // Record failed attempt
+        let attempts = getFailedAttempts() + 1;
+        setFailedAttempts(attempts);
+
+        if (spinner) spinner.style.display = 'none';
+        if (btnText) btnText.textContent = 'Sign In to Dashboard';
+        if (submitBtn) submitBtn.disabled = false;
+
+        if (attempts >= AUTH_CONFIG.maxAttempts) {
+            const lockoutUntil = Date.now() + AUTH_CONFIG.lockoutDurationMs;
+            setLockoutEndTime(lockoutUntil);
+            checkAndApplyLockout();
+            showLoginAlert(`Security Alert: Maximum attempts exceeded. Locked for 30s.`);
+        } else {
+            const remaining = AUTH_CONFIG.maxAttempts - attempts;
+            showLoginAlert(`Invalid username or password. (${remaining} ${remaining === 1 ? 'attempt' : 'attempts'} remaining)`);
+        }
+
+        if (passwordInput) {
+            passwordInput.value = '';
+            passwordInput.focus();
+        }
+        return;
+    }
+
+    // Successful Authentication
+    setFailedAttempts(0);
+    setLockoutEndTime(0);
+    hideLoginAlert();
+
+    // Trigger Google Password Manager / Browser "Save Password" prompt via Credential Management API
+    try {
+        if (typeof window !== 'undefined' && window.PasswordCredential && navigator.credentials && typeof navigator.credentials.store === 'function') {
+            const formEl = document.getElementById('loginForm');
+            let cred = null;
+            if (formEl) {
+                try {
+                    cred = new PasswordCredential(formEl);
+                } catch (_) {}
+            }
+            if (!cred) {
+                cred = new PasswordCredential({
+                    id: enteredUsername,
+                    password: enteredPassword,
+                    name: 'SRI MOORTHY TRANSPORT'
+                });
+            }
+            if (cred) {
+                navigator.credentials.store(cred).then(() => {
+                    console.log('[Auth] Google / Browser credential prompt triggered successfully');
+                }).catch((err) => {
+                    console.log('[Auth] Credential store handled:', err);
+                });
+            }
+        }
+    } catch (credErr) {
+        console.log('[Auth] Password credential notice:', credErr);
+    }
+
+    const expiryTime = rememberMe 
+        ? Date.now() + (AUTH_CONFIG.sessionDurationDays * 24 * 60 * 60 * 1000)
+        : Date.now() + (24 * 60 * 60 * 1000);
+
+    const sessionData = {
+        username: 'moorthy',
+        role: 'Administrator',
+        name: 'Sri Moorthy Admin',
+        token: 'smt_' + (window.crypto?.randomUUID ? window.crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now()),
+        loginTime: Date.now(),
+        expiresAt: expiryTime,
+        rememberMe: rememberMe
+    };
+
+    saveAuthSession(sessionData, rememberMe);
+
+    if (btnText) btnText.textContent = 'Access Granted! Entering Fleet...';
+
+    setTimeout(() => {
+        const loginScreen = document.getElementById('loginScreen');
+        const appEl = document.getElementById('app');
+
+        if (loginScreen) {
+            loginScreen.classList.add('hide');
+            setTimeout(() => {
+                loginScreen.style.display = 'none';
+                loginScreen.classList.remove('hide');
+            }, 350);
+        }
+
+        if (appEl) {
+            appEl.style.display = 'flex';
+        }
+
+        // Initialize Application
+        try {
+            initApp();
+        } catch (err) {
+            console.error('Error initializing app after login:', err);
+        }
+
+        if (spinner) spinner.style.display = 'none';
+        if (btnText) btnText.textContent = 'Sign In to Dashboard';
+        if (submitBtn) submitBtn.disabled = false;
+
+        showToast('Welcome back, Sri Moorthy! 🚛 Fleet Portal Unlocked', 'success');
+        startInactivityTracker();
+    }, 120);
+}
+
+// Secure Logout / Lock Application
+function handleLogout(isAutoLock = false) {
+    clearAuthSession();
+    closeSidebar();
+
+    const appEl = document.getElementById('app');
+    const loginScreen = document.getElementById('loginScreen');
+    const passInput = document.getElementById('loginPassword');
+
+    if (appEl) {
+        appEl.style.display = 'none';
+    }
+
+    if (loginScreen) {
+        loginScreen.style.display = 'flex';
+        loginScreen.classList.remove('hide');
+    }
+
+    if (passInput) {
+        passInput.value = '';
+    }
+
+    hideLoginAlert();
+    checkAndApplyLockout();
+
+    const userInput = document.getElementById('loginUsername');
+    if (userInput && !userInput.value) {
+        setTimeout(() => userInput.focus(), 100);
+    }
+
+    showToast(isAutoLock ? 'Session locked for security due to inactivity 🔒' : 'Signed out safely. System locked 🔒', 'info');
+}
+
+// Inactivity Auto-Lock Protection (30 Minutes)
+function resetUserActivity() {
+    lastUserActivityTime = Date.now();
+}
+
+function startInactivityTracker() {
+    if (inactivityInterval) return;
+    ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'].forEach(evt => {
+        window.addEventListener(evt, resetUserActivity, { passive: true });
+    });
+
+    inactivityInterval = setInterval(() => {
+        if (!isUserAuthenticated()) return;
+        const idleTime = Date.now() - lastUserActivityTime;
+        if (idleTime > AUTH_CONFIG.inactivityTimeoutMs) {
+            console.log('[Security] Auto-locking session due to inactivity');
+            handleLogout(true);
+        }
+    }, 60000);
+}
+
+// ===== SPLASH SCREEN & GATEWAY INITIALIZATION =====
 let splashDismissed = false;
 
+// Fast, Instant splash dismissal transitioning to Login / App
 function dismissSplash() {
     if (splashDismissed) return;
     splashDismissed = true;
 
     const splash = document.getElementById('splashScreen');
+    const loginScreen = document.getElementById('loginScreen');
     const appEl = document.getElementById('app');
 
-    if (appEl) {
-        appEl.style.display = 'flex';
-    }
+    // Check if user has an active, authenticated session
+    const authenticated = isUserAuthenticated();
 
-    if (splash) {
-        splash.classList.add('hide');
-        setTimeout(() => {
-            splash.style.display = 'none';
-        }, 450);
-    }
-
-    try {
-        initApp();
-    } catch (err) {
-        console.error('Error during app initialization:', err);
+    if (authenticated) {
+        if (splash) {
+            splash.classList.add('hide');
+            setTimeout(() => { splash.style.display = 'none'; }, 200);
+        }
+        if (loginScreen) loginScreen.style.display = 'none';
+        if (appEl) appEl.style.display = 'flex';
+        try {
+            initApp();
+            startInactivityTracker();
+        } catch (err) {
+            console.error('Error during app initialization:', err);
+        }
+    } else {
+        // Enforce Login as FIRST page - INSTANT display without splash lag
+        if (splash) splash.style.display = 'none';
+        if (appEl) appEl.style.display = 'none';
+        if (loginScreen) {
+            loginScreen.style.display = 'flex';
+            checkAndApplyLockout();
+            const userInput = document.getElementById('loginUsername');
+            if (userInput) {
+                // Preserve browser autofilled credentials or focus if empty
+                if (!userInput.value) {
+                    try {
+                        const saved = localStorage.getItem('sm_auth_session');
+                        if (saved) {
+                            const parsed = JSON.parse(saved);
+                            if (parsed && parsed.username) userInput.value = parsed.username;
+                        }
+                    } catch (_) {}
+                    setTimeout(() => userInput.focus(), 80);
+                }
+            }
+            const passInput = document.getElementById('loginPassword');
+            if (passInput && !passInput.value) {
+                // Keep intact if browser autofilled password
+            }
+        }
     }
 }
 
-// Immediate tap / click listener on splash screen so user can tap to skip instantly
+// Attach tap / click listener on splash screen
 (function attachSplashDismissListeners() {
     const splash = document.getElementById('splashScreen');
     if (splash) {
         splash.addEventListener('click', dismissSplash);
         splash.addEventListener('touchstart', dismissSplash, { passive: true });
     }
+    try {
+        initThemeMode();
+        initThemeColor();
+    } catch (_) {}
 })();
 
-// Fast, reliable splash dismissal that doesn't hang on slow external CDN assets
-if (document.readyState === 'complete') {
-    setTimeout(dismissSplash, 500);
+// Instant load - zero lag
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', dismissSplash);
 } else {
-    document.addEventListener('DOMContentLoaded', () => {
-        setTimeout(dismissSplash, 650);
-    });
-    // Safety timeout: dismiss after max 1.1s even if external resources are slow
-    setTimeout(dismissSplash, 1100);
-    // Also trigger if window load completes early
-    window.addEventListener('load', () => {
-        setTimeout(dismissSplash, 300);
-    });
+    dismissSplash();
 }
 
 // ===== DIESEL BENCHMARK RATE SYNC =====
@@ -688,6 +1133,10 @@ function initApp() {
 let currentPage = 'dashboard';
 
 function navigateTo(page) {
+    if (!isUserAuthenticated()) {
+        handleLogout();
+        return;
+    }
     currentPage = page;
 
     // Update pages
@@ -876,36 +1325,198 @@ function animateButtonSuccess(btn, successText, callback) {
 }
 window.animateButtonSuccess = animateButtonSuccess;
 
-// ===== DASHBOARD =====
-function renderDashboard() {
-    const bills = getBills();
-    const fuel = getFuelLogs();
-    const vehicles = getVehicles();
-    const salaries = typeof getDriverSalaries === 'function' ? getDriverSalaries() : [];
+// ===== DASHBOARD (MONTHLY CALCULATION HUB) =====
+let dashboardMonthState = {
+    year: new Date().getFullYear(),
+    month: new Date().getMonth() // 0-indexed (0=Jan, 9=Oct, etc.)
+};
 
-    // Stats
+function getDashboardMonthRange() {
+    const start = new Date(dashboardMonthState.year, dashboardMonthState.month, 1, 0, 0, 0, 0);
+    const end = new Date(dashboardMonthState.year, dashboardMonthState.month + 1, 0, 23, 59, 59, 999);
+    const monthName = start.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+    const startStr = start.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+    const endStr = end.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+
+    return {
+        start,
+        end,
+        startISO: formatISODate(start),
+        endISO: formatISODate(end),
+        monthName,
+        label: `${startStr} – ${endStr}`
+    };
+}
+
+function changeDashboardMonth(delta) {
+    let newMonth = dashboardMonthState.month + delta;
+    let newYear = dashboardMonthState.year;
+    if (newMonth < 0) {
+        newMonth = 11;
+        newYear--;
+    } else if (newMonth > 11) {
+        newMonth = 0;
+        newYear++;
+    }
+    dashboardMonthState.month = newMonth;
+    dashboardMonthState.year = newYear;
+    renderDashboard();
+}
+window.changeDashboardMonth = changeDashboardMonth;
+
+function resetDashboardToCurrentMonth() {
+    const now = new Date();
+    dashboardMonthState.year = now.getFullYear();
+    dashboardMonthState.month = now.getMonth();
+    renderDashboard();
+}
+window.resetDashboardToCurrentMonth = resetDashboardToCurrentMonth;
+
+function onDashboardMonthSelectChange() {
+    const sel = document.getElementById('dashboardMonthSelect');
+    if (!sel || !sel.value) return;
+    const parts = sel.value.split('-');
+    if (parts.length === 2) {
+        dashboardMonthState.year = parseInt(parts[0], 10);
+        dashboardMonthState.month = parseInt(parts[1], 10);
+        renderDashboard();
+    }
+}
+window.onDashboardMonthSelectChange = onDashboardMonthSelectChange;
+
+function populateDashboardMonthSelect() {
+    const sel = document.getElementById('dashboardMonthSelect');
+    if (!sel) return;
+
+    const now = new Date();
+    let optionsHtml = '';
+    // Generate 12 months: 8 past, current, 3 future
+    for (let i = -8; i <= 3; i++) {
+        const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+        const y = d.getFullYear();
+        const m = d.getMonth();
+        const val = `${y}-${m}`;
+        const label = d.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
+        const isSelected = (y === dashboardMonthState.year && m === dashboardMonthState.month);
+        const isCurrent = (y === now.getFullYear() && m === now.getMonth());
+        optionsHtml += `<option value="${val}" ${isSelected ? 'selected' : ''}>${label}${isCurrent ? ' (Current)' : ''}</option>`;
+    }
+    sel.innerHTML = optionsHtml;
+}
+
+function renderDashboard() {
+    populateDashboardMonthSelect();
+    const dateRange = getDashboardMonthRange();
+
+    // Update Header Pill and Subtitle
+    const headingPill = document.getElementById('dashboardMonthPill');
+    if (headingPill) headingPill.textContent = dateRange.monthName;
+
+    const rangeSubtitle = document.getElementById('dashboardMonthRange');
+    if (rangeSubtitle) rangeSubtitle.textContent = `Calculations for ${dateRange.label} (Trip Income, Fuel & Net Margin)`;
+
+    const allBills = getBills();
+    const allFuel = getFuelLogs();
+    const vehicles = getVehicles();
+    const allSalaries = typeof getDriverSalaries === 'function' ? getDriverSalaries() : [];
+    const allServices = typeof getVehicleServices === 'function' ? getVehicleServices() : [];
+
+    // Filter by the selected month
+    const monthlyBills = allBills.filter(b => {
+        const d = (b.date || '').split('T')[0];
+        return d >= dateRange.startISO && d <= dateRange.endISO;
+    });
+
+    const monthlyFuel = allFuel.filter(f => {
+        const d = (f.date || '').split('T')[0];
+        return d >= dateRange.startISO && d <= dateRange.endISO;
+    });
+
+    const monthlySalaries = allSalaries.filter(s => {
+        const d = (s.date || '').split('T')[0];
+        return d >= dateRange.startISO && d <= dateRange.endISO;
+    });
+
+    const monthlyServices = allServices.filter(s => {
+        const d = (s.date || '').split('T')[0];
+        return d >= dateRange.startISO && d <= dateRange.endISO;
+    });
+
+    // Counts
+    const localTripsCount = monthlyBills.filter(b => b.isLocalIncome).length;
+
+    // Gross Revenue
+    const monthlyRevenue = monthlyBills.reduce((sum, b) => sum + (parseFloat(b.grandTotal) || 0), 0);
+
+    // Fuel Cost & Litres
+    const monthlyFuelCost = monthlyFuel.reduce((sum, f) => sum + (parseFloat(f.totalAmount) || 0), 0);
+    const monthlyFuelLitres = monthlyFuel.reduce((sum, f) => sum + (parseFloat(f.litres) || 0), 0);
+
+    // Salary Cost (Standalone salary payments + legacy bill driver salaries in this month)
+    const directSalaryCost = monthlySalaries.reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0);
+    const legacyBillSalaries = monthlyBills.reduce((sum, b) => (b.addToDriverSalary && b.driverSalaryAmount) ? sum + (parseFloat(b.driverSalaryAmount) || 0) : sum, 0);
+    const monthlySalaryCost = directSalaryCost + legacyBillSalaries;
+
+    // Service & Maintenance Cost
+    const monthlyServiceCost = monthlyServices.reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0);
+
+    // Total Monthly Expenses & Net Monthly Profit
+    const monthlyTotalExpenses = monthlyFuelCost + monthlySalaryCost + monthlyServiceCost;
+    const monthlyNetProfit = monthlyRevenue - monthlyTotalExpenses;
+    const margin = monthlyRevenue > 0 ? ((monthlyNetProfit / monthlyRevenue) * 100).toFixed(1) : '0.0';
+
+    // 1. Update Monthly Calculation Command Hub elements
+    const calcGrossEl = document.getElementById('calcGrossIncome');
+    if (calcGrossEl) calcGrossEl.textContent = formatCurrency(monthlyRevenue);
+
+    const calcBillsCountEl = document.getElementById('calcBillsCount');
+    if (calcBillsCountEl) {
+        calcBillsCountEl.textContent = `${monthlyBills.length} Trips (${localTripsCount} Local)`;
+    }
+
+    const calcFuelEl = document.getElementById('calcFuelExpense');
+    if (calcFuelEl) calcFuelEl.textContent = formatCurrency(monthlyFuelCost);
+
+    const calcFuelLitresEl = document.getElementById('calcFuelLitres');
+    if (calcFuelLitresEl) calcFuelLitresEl.textContent = `${monthlyFuelLitres.toFixed(1)} L Diesel`;
+
+    const calcSalaryEl = document.getElementById('calcSalaryExpense');
+    if (calcSalaryEl) calcSalaryEl.textContent = formatCurrency(monthlySalaryCost);
+
+    const calcSalaryCountEl = document.getElementById('calcSalaryCount');
+    if (calcSalaryCountEl) calcSalaryCountEl.textContent = `${monthlySalaries.length} Salary Entries`;
+
+    const calcServiceEl = document.getElementById('calcServiceExpense');
+    if (calcServiceEl) calcServiceEl.textContent = formatCurrency(monthlyServiceCost);
+
+    const calcServiceCountEl = document.getElementById('calcServiceCount');
+    if (calcServiceCountEl) calcServiceCountEl.textContent = `${monthlyServices.length} Service Records`;
+
+    const calcNetProfitEl = document.getElementById('calcNetProfit');
+    const calcMarginBadgeEl = document.getElementById('calcMarginBadge');
+    const calcNetProfitBox = document.getElementById('calcNetProfitBox');
+    if (calcNetProfitEl) {
+        calcNetProfitEl.textContent = formatCurrency(monthlyNetProfit);
+    }
+    if (calcMarginBadgeEl) {
+        calcMarginBadgeEl.textContent = `${monthlyNetProfit >= 0 ? '+' : ''}${margin}% Margin`;
+    }
+    if (calcNetProfitBox) {
+        calcNetProfitBox.classList.toggle('profit-negative', monthlyNetProfit < 0);
+    }
+
+    // 2. Update Standard Dashboard Stat Cards (Now displaying Monthly Calculations)
     const totalVehiclesEl = document.getElementById('totalVehicles');
     if (totalVehiclesEl) totalVehiclesEl.textContent = vehicles.length;
 
     const totalBillsEl = document.getElementById('totalBills');
-    if (totalBillsEl) totalBillsEl.textContent = bills.length;
+    if (totalBillsEl) totalBillsEl.textContent = monthlyBills.length;
 
-    const revenue = bills.reduce((sum, b) => sum + (parseFloat(b.grandTotal) || 0), 0);
     const totalRevenueEl = document.getElementById('totalRevenue');
-    if (totalRevenueEl) totalRevenueEl.textContent = formatCurrency(revenue);
+    if (totalRevenueEl) totalRevenueEl.textContent = formatCurrency(monthlyRevenue);
 
-    const fuelCost = fuel.reduce((sum, f) => sum + (parseFloat(f.totalAmount) || 0), 0);
     const totalFuelCostEl = document.getElementById('totalFuelCost');
-    if (totalFuelCostEl) totalFuelCostEl.textContent = formatCurrency(fuelCost);
-
-    // Net Profit: Revenue - Fuel Cost - Driver Salaries - Vehicle Service Expenses
-    const salaryCost = salaries.reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0);
-    const legacyBillSalaries = bills.reduce((sum, b) => (b.addToDriverSalary && b.driverSalaryAmount) ? sum + (parseFloat(b.driverSalaryAmount) || 0) : sum, 0);
-    const services = typeof getVehicleServices === 'function' ? getVehicleServices() : [];
-    const serviceCost = services.reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0);
-    const totalExpenses = fuelCost + salaryCost + legacyBillSalaries + serviceCost;
-    const netProfit = revenue - totalExpenses;
-    const margin = revenue > 0 ? ((netProfit / revenue) * 100).toFixed(1) : '0.0';
+    if (totalFuelCostEl) totalFuelCostEl.textContent = formatCurrency(monthlyFuelCost);
 
     const netProfitEl = document.getElementById('totalNetProfit');
     const netProfitMarginEl = document.getElementById('netProfitMarginBadge');
@@ -913,39 +1524,42 @@ function renderDashboard() {
     const netProfitCard = document.getElementById('statCardNetProfit');
 
     if (netProfitEl) {
-        netProfitEl.textContent = formatCurrency(netProfit);
-        netProfitEl.style.color = netProfit >= 0 ? 'var(--green, #10b981)' : 'var(--red, #ef4444)';
+        netProfitEl.textContent = formatCurrency(monthlyNetProfit);
+        netProfitEl.style.color = monthlyNetProfit >= 0 ? 'var(--green, #10b981)' : 'var(--red, #ef4444)';
     }
     if (netProfitMarginEl) {
-        netProfitMarginEl.textContent = `${netProfit >= 0 ? '+' : ''}${margin}% Margin`;
-        netProfitMarginEl.className = `stat-trend-chip ${netProfit >= 0 ? 'green' : 'red'}`;
+        netProfitMarginEl.textContent = `${monthlyNetProfit >= 0 ? '+' : ''}${margin}% Margin`;
+        netProfitMarginEl.className = `stat-trend-chip ${monthlyNetProfit >= 0 ? 'green' : 'red'}`;
     }
     if (netProfitProgressEl) {
-        const percent = revenue > 0 ? Math.min(100, Math.max(0, (netProfit / revenue) * 100)) : 0;
+        const percent = monthlyRevenue > 0 ? Math.min(100, Math.max(0, (monthlyNetProfit / monthlyRevenue) * 100)) : 0;
         netProfitProgressEl.style.width = `${percent}%`;
-        netProfitProgressEl.className = `stat-progress-bar ${netProfit >= 0 ? 'green' : 'red'}`;
+        netProfitProgressEl.className = `stat-progress-bar ${monthlyNetProfit >= 0 ? 'green' : 'red'}`;
     }
     if (netProfitCard) {
-        netProfitCard.classList.toggle('glow-green', netProfit >= 0);
-        netProfitCard.classList.toggle('glow-red', netProfit < 0);
+        netProfitCard.classList.toggle('glow-green', monthlyNetProfit >= 0);
+        netProfitCard.classList.toggle('glow-red', monthlyNetProfit < 0);
     }
 
-    // Recent Activity
-    renderRecentActivity(bills, fuel);
+    // 3. Render Recent Activity for Selected Month (or overall if none in month)
+    const activityBills = monthlyBills.length > 0 ? monthlyBills : allBills;
+    const activityFuel = monthlyFuel.length > 0 ? monthlyFuel : allFuel;
+    renderRecentActivity(activityBills, activityFuel);
 
-    // Fleet Cards
-    renderFleetCards(vehicles, bills, fuel);
+    // 4. Render Fleet Cards (Vehicles stats for THIS MONTH)
+    renderFleetCards(vehicles, monthlyBills, monthlyFuel);
 }
 
 function renderRecentActivity(bills, fuel) {
     const container = document.getElementById('recentActivity');
+    if (!container) return;
     const activities = [];
 
     bills.forEach(b => {
         const v = getVehicleById(b.vehicleId);
         activities.push({
             type: 'bill',
-            title: `Bill ${b.billNumber} - ${b.customerName}`,
+            title: `Bill ${b.billNumber} - ${b.customerName || (b.isLocalIncome ? 'Local Income Run' : 'Direct Trip')}`,
             meta: v ? getVehicleDisplay(v) : '',
             amount: formatCurrency(b.grandTotal),
             date: b.date,
@@ -971,7 +1585,7 @@ function renderRecentActivity(bills, fuel) {
         container.innerHTML = `
             <div class="empty-state">
                 <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                <p>No recent activity. Start by creating a new bill or adding fuel!</p>
+                <p>No transactions recorded for this month.</p>
             </div>`;
         return;
     }
@@ -992,6 +1606,7 @@ function renderRecentActivity(bills, fuel) {
 
 function renderFleetCards(vehicles, bills, fuel) {
     const container = document.getElementById('fleetCards');
+    if (!container) return;
     container.innerHTML = vehicles.map(v => {
         const vBills = bills.filter(b => b.vehicleId === v.id);
         const vFuel = fuel.filter(f => f.vehicleId === v.id);
@@ -1004,7 +1619,7 @@ function renderFleetCards(vehicles, bills, fuel) {
             <div class="fleet-card-header">
                 <div class="fleet-card-vehicle">
                     <div class="fleet-card-icon">
-                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
                     </div>
                     <div>
                         <div class="fleet-card-name">${v.name}</div>
@@ -1012,24 +1627,20 @@ function renderFleetCards(vehicles, bills, fuel) {
                     </div>
                 </div>
                 <div style="display:flex;align-items:center;gap:8px;">
-                    <a href="https://app.fleetocity.co.in" target="_blank" rel="noopener noreferrer" class="vehicle-gps-action-btn" title="Track ${v.number} on Live GPS">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2a8 8 0 0 0-8 8c0 5.25 8 12 8 12s8-6.75 8-12a8 8 0 0 0-8-8z"/><circle cx="12" cy="10" r="3"/></svg>
-                        GPS
-                    </a>
                     <span class="fleet-card-status active">Active</span>
                 </div>
             </div>
             <div class="fleet-card-stats">
                 <div class="fleet-stat">
-                    <span class="fleet-stat-label">Trips</span>
+                    <span class="fleet-stat-label">Month Trips</span>
                     <span class="fleet-stat-value">${vBills.length}</span>
                 </div>
                 <div class="fleet-stat">
-                    <span class="fleet-stat-label">Revenue</span>
+                    <span class="fleet-stat-label">Month Revenue</span>
                     <span class="fleet-stat-value" style="color:var(--green);font-size:14px;">${formatCurrency(earnings)}</span>
                 </div>
                 <div class="fleet-stat">
-                    <span class="fleet-stat-label">Fuel</span>
+                    <span class="fleet-stat-label">Month Fuel</span>
                     <span class="fleet-stat-value" style="font-size:14px;">${totalLitres.toFixed(1)}L</span>
                 </div>
             </div>
@@ -1658,21 +2269,224 @@ function updateLocalTripUI(isLocal) {
 }
 window.updateLocalTripUI = updateLocalTripUI;
 
+// ===== BILL FROM / TO LOCATION HELPERS =====
+function onFromLocationChange() {
+    const sel = document.getElementById('fromLocation');
+    const wrap = document.getElementById('fromLocationCustomWrap');
+    const custom = document.getElementById('fromLocationCustom');
+    if (!sel || !wrap) return;
+    if (sel.value === 'OTHER') {
+        wrap.style.display = 'block';
+        if (custom) custom.focus();
+    } else {
+        wrap.style.display = 'none';
+    }
+}
+window.onFromLocationChange = onFromLocationChange;
+
+function onToLocationChange() {
+    const sel = document.getElementById('toLocation');
+    const wrap = document.getElementById('toLocationCustomWrap');
+    const custom = document.getElementById('toLocationCustom');
+    if (!sel || !wrap) return;
+    if (sel.value === 'OTHER') {
+        wrap.style.display = 'block';
+        if (custom) custom.focus();
+    } else {
+        wrap.style.display = 'none';
+    }
+}
+window.onToLocationChange = onToLocationChange;
+
+function getFromLocationValue() {
+    const sel = document.getElementById('fromLocation');
+    const custom = document.getElementById('fromLocationCustom');
+    if (!sel) return 'Kumbakonam';
+    if (sel.value === 'OTHER') {
+        return (custom ? custom.value.trim() : '') || 'Kumbakonam';
+    }
+    return sel.value || 'Kumbakonam';
+}
+window.getFromLocationValue = getFromLocationValue;
+
+function setFromLocationValue(val) {
+    const sel = document.getElementById('fromLocation');
+    const wrap = document.getElementById('fromLocationCustomWrap');
+    const custom = document.getElementById('fromLocationCustom');
+    if (!sel) return;
+    const targetVal = val ? val.trim() : 'Kumbakonam';
+    let found = false;
+    for (let i = 0; i < sel.options.length; i++) {
+        if (sel.options[i].value.toLowerCase() === targetVal.toLowerCase()) {
+            sel.selectedIndex = i;
+            found = true;
+            break;
+        }
+    }
+    if (found) {
+        if (wrap) wrap.style.display = 'none';
+    } else {
+        sel.value = 'OTHER';
+        if (wrap) {
+            wrap.style.display = 'block';
+            if (custom) custom.value = targetVal;
+        }
+    }
+}
+window.setFromLocationValue = setFromLocationValue;
+
+function getToLocationValue() {
+    const sel = document.getElementById('toLocation');
+    const custom = document.getElementById('toLocationCustom');
+    if (!sel) return '';
+    if (sel.value === 'OTHER') {
+        return (custom ? custom.value.trim() : '');
+    }
+    return sel.value || '';
+}
+window.getToLocationValue = getToLocationValue;
+
+function setToLocationValue(val) {
+    const sel = document.getElementById('toLocation');
+    const wrap = document.getElementById('toLocationCustomWrap');
+    const custom = document.getElementById('toLocationCustom');
+    if (!sel) return;
+    if (!val) {
+        sel.value = 'Kumbakonam';
+        if (wrap) wrap.style.display = 'none';
+        return;
+    }
+    const targetVal = val.trim();
+    let found = false;
+    for (let i = 0; i < sel.options.length; i++) {
+        if (sel.options[i].value.toLowerCase() === targetVal.toLowerCase()) {
+            sel.selectedIndex = i;
+            found = true;
+            break;
+        }
+    }
+    if (found) {
+        if (wrap) wrap.style.display = 'none';
+    } else {
+        sel.value = 'OTHER';
+        if (wrap) {
+            wrap.style.display = 'block';
+            if (custom) custom.value = targetVal;
+        }
+    }
+}
+window.setToLocationValue = setToLocationValue;
+
 
 // ===== BILLING =====
+// Charge Description Presets (Local Delivery first)
+const CHARGE_DESCRIPTION_OPTIONS = [
+    { value: 'Local Delivery', label: 'Local Delivery' },
+    { value: 'Transport Charge', label: 'Transport Charge' },
+    { value: 'Loading & Unloading Charge', label: 'Loading & Unloading Charge' },
+    { value: 'Halting / Detention Charge', label: 'Halting / Detention Charge' },
+    { value: 'Toll & Fastag Charge', label: 'Toll & Fastag Charge' },
+    { value: 'Driver Batta / Allowance', label: 'Driver Batta / Allowance' },
+    { value: 'Fuel Surcharge', label: 'Fuel Surcharge' },
+    { value: 'OTHER', label: '✏️ Other / Custom Description...' }
+];
+
+function renderLineItemRow(index = 0, defaultDesc = 'Local Delivery', defaultAmount = '') {
+    const isStandard = CHARGE_DESCRIPTION_OPTIONS.some(o => o.value === defaultDesc && o.value !== 'OTHER');
+    const selected = isStandard ? defaultDesc : (defaultDesc ? 'OTHER' : 'Local Delivery');
+    const customVal = isStandard ? '' : (defaultDesc || '');
+    const isCustom = selected === 'OTHER';
+
+    const optsHtml = CHARGE_DESCRIPTION_OPTIONS.map(o => 
+        `<option value="${o.value}" ${o.value === selected ? 'selected' : ''}>${o.label}</option>`
+    ).join('');
+
+    const safeDesc = (defaultDesc || 'Local Delivery').replace(/"/g, '&quot;');
+    const safeCustom = customVal.replace(/"/g, '&quot;');
+    const amountVal = (defaultAmount !== '' && defaultAmount !== null && defaultAmount !== undefined) ? defaultAmount : '';
+
+    return `
+        <div class="line-item" data-index="${index}">
+            <div class="item-desc-wrap">
+                <select class="item-desc-select" onchange="handleChargeSelectChange(this)" aria-label="Charge Description">
+                    ${optsHtml}
+                </select>
+                <input 
+                    type="text" 
+                    placeholder="Type custom charge description..." 
+                    class="item-desc-custom" 
+                    value="${safeCustom}" 
+                    style="${isCustom ? 'display:block;' : 'display:none;'}"
+                    oninput="handleChargeCustomInput(this)"
+                >
+                <input type="hidden" class="item-desc" value="${safeDesc}">
+            </div>
+            <input type="number" placeholder="Amount (₹)" class="item-amount" min="0" step="0.01" value="${amountVal}" required oninput="calculateBillTotal()">
+            <button type="button" class="line-item-remove" onclick="removeLineItem(this)" title="Remove Charge">✕</button>
+        </div>`;
+}
+
+function handleChargeSelectChange(selectEl) {
+    const wrap = selectEl.closest('.item-desc-wrap');
+    if (!wrap) return;
+    const customInput = wrap.querySelector('.item-desc-custom');
+    const hiddenInput = wrap.querySelector('.item-desc');
+    const val = selectEl.value;
+
+    if (val === 'OTHER') {
+        if (customInput) {
+            customInput.style.display = 'block';
+            customInput.focus();
+            if (hiddenInput) hiddenInput.value = customInput.value.trim() || 'Custom Charge';
+        }
+    } else {
+        if (customInput) customInput.style.display = 'none';
+        if (hiddenInput) hiddenInput.value = val;
+    }
+}
+window.handleChargeSelectChange = handleChargeSelectChange;
+
+function handleChargeCustomInput(inputEl) {
+    const wrap = inputEl.closest('.item-desc-wrap');
+    if (!wrap) return;
+    const hiddenInput = wrap.querySelector('.item-desc');
+    if (hiddenInput) {
+        hiddenInput.value = inputEl.value.trim() || 'Custom Charge';
+    }
+}
+window.handleChargeCustomInput = handleChargeCustomInput;
+
+function applyQuickChargePreset(presetName) {
+    const container = document.getElementById('lineItems');
+    if (!container) return;
+    const rows = container.querySelectorAll('.line-item');
+    const lastRow = rows.length > 0 ? rows[rows.length - 1] : null;
+    const lastAmount = lastRow ? lastRow.querySelector('.item-amount')?.value : '';
+
+    if (lastRow && (!lastAmount || parseFloat(lastAmount) === 0)) {
+        const select = lastRow.querySelector('.item-desc-select');
+        const hidden = lastRow.querySelector('.item-desc');
+        const custom = lastRow.querySelector('.item-desc-custom');
+        if (select) {
+            select.value = presetName;
+            if (custom) custom.style.display = 'none';
+            if (hidden) hidden.value = presetName;
+        }
+        lastRow.querySelector('.item-amount')?.focus();
+    } else {
+        addLineItem(presetName);
+    }
+    showToast(`Charge set: ${presetName} 🚚`, 'info');
+}
+window.applyQuickChargePreset = applyQuickChargePreset;
+
 function openBillModal(billId) {
     const modal = document.getElementById('billModal');
     const form = document.getElementById('billForm');
     form.reset();
 
-    // Reset line items
-    document.getElementById('lineItems').innerHTML = `
-        <div class="line-item" data-index="0">
-            <input type="text" placeholder="Description (e.g., Transport Charge)" class="item-desc" required>
-            <input type="number" placeholder="Amount" class="item-amount" min="0" step="0.01" required oninput="calculateBillTotal()">
-            <button type="button" class="line-item-remove" onclick="removeLineItem(this)">✕</button>
-        </div>`;
-
+    // Reset line items with Local Delivery as first default
+    document.getElementById('lineItems').innerHTML = renderLineItemRow(0, 'Local Delivery', '');
 
     if (billId) {
         // Edit mode
@@ -1685,8 +2499,8 @@ function openBillModal(billId) {
         document.getElementById('billVehicle').value = bill.vehicleId;
         document.getElementById('customerName').value = bill.customerName;
         document.getElementById('customerPhone').value = bill.customerPhone || '';
-        document.getElementById('fromLocation').value = bill.fromLocation;
-        document.getElementById('toLocation').value = bill.toLocation;
+        setFromLocationValue(bill.fromLocation || 'Kumbakonam');
+        setToLocationValue(bill.toLocation || 'Kumbakonam');
         document.getElementById('goodsDesc').value = bill.goodsDesc || '';
 
         // Local Income Trip option
@@ -1703,16 +2517,13 @@ function openBillModal(billId) {
         // Restore line items
         const lineItemsContainer = document.getElementById('lineItems');
         lineItemsContainer.innerHTML = '';
-        (bill.lineItems || []).forEach((item, i) => {
-            const div = document.createElement('div');
-            div.className = 'line-item';
-            div.dataset.index = i;
-            div.innerHTML = `
-                <input type="text" placeholder="Description" class="item-desc" value="${item.desc}" required>
-                <input type="number" placeholder="Amount" class="item-amount" min="0" step="0.01" value="${item.amount}" required oninput="calculateBillTotal()">
-                <button type="button" class="line-item-remove" onclick="removeLineItem(this)">✕</button>`;
-            lineItemsContainer.appendChild(div);
-        });
+        if (bill.lineItems && bill.lineItems.length > 0) {
+            bill.lineItems.forEach((item, i) => {
+                lineItemsContainer.insertAdjacentHTML('beforeend', renderLineItemRow(i, item.desc || 'Local Delivery', item.amount || 0));
+            });
+        } else {
+            lineItemsContainer.innerHTML = renderLineItemRow(0, 'Local Delivery', '');
+        }
 
         calculateBillTotal();
         calculateBillBalance();
@@ -1724,6 +2535,8 @@ function openBillModal(billId) {
         const autoNext = getNextBillNumber();
         document.getElementById('billNumber').value = autoNext;
         document.getElementById('billDate').value = new Date().toISOString().split('T')[0];
+        setFromLocationValue('Kumbakonam');
+        setToLocationValue('Kumbakonam');
         const localCheck = document.getElementById('isLocalIncome');
         if (localCheck) localCheck.checked = false;
         updateLocalTripUI(false);
@@ -1808,19 +2621,15 @@ function closeBillModal() {
     document.getElementById('billModal').classList.remove('show');
 }
 
-function addLineItem() {
+function addLineItem(defaultDesc = 'Local Delivery') {
     const container = document.getElementById('lineItems');
     const index = container.children.length;
-    const div = document.createElement('div');
-    div.className = 'line-item';
-    div.dataset.index = index;
-    div.innerHTML = `
-        <input type="text" placeholder="Description" class="item-desc" required>
-        <input type="number" placeholder="Amount" class="item-amount" min="0" step="0.01" required oninput="calculateBillTotal()">
-        <button type="button" class="line-item-remove" onclick="removeLineItem(this)">✕</button>`;
-    container.appendChild(div);
-    div.querySelector('.item-desc').focus();
+    container.insertAdjacentHTML('beforeend', renderLineItemRow(index, defaultDesc, ''));
+    const newRow = container.lastElementChild;
+    const amtInput = newRow?.querySelector('.item-amount');
+    if (amtInput) amtInput.focus();
 }
+window.addLineItem = addLineItem;
 
 function removeLineItem(btn) {
     const container = document.getElementById('lineItems');
@@ -1887,9 +2696,20 @@ function saveBill(event) {
     // Collect line items
     const lineItems = [];
     document.querySelectorAll('#lineItems .line-item').forEach(li => {
+        const hidden = li.querySelector('.item-desc');
+        const select = li.querySelector('.item-desc-select');
+        const custom = li.querySelector('.item-desc-custom');
+        let desc = '';
+        if (hidden && hidden.value) {
+            desc = hidden.value.trim();
+        } else if (select && select.value) {
+            desc = select.value === 'OTHER' ? (custom?.value.trim() || 'Custom Charge') : select.value;
+        }
+        if (!desc) desc = 'Local Delivery';
+
         lineItems.push({
-            desc: li.querySelector('.item-desc').value,
-            amount: parseFloat(li.querySelector('.item-amount').value) || 0
+            desc: desc,
+            amount: parseFloat(li.querySelector('.item-amount')?.value) || 0
         });
     });
 
@@ -1918,8 +2738,8 @@ function saveBill(event) {
         vehicleId: document.getElementById('billVehicle').value,
         customerName: customerName,
         customerPhone: customerPhone,
-        fromLocation: document.getElementById('fromLocation').value,
-        toLocation: document.getElementById('toLocation').value,
+        fromLocation: getFromLocationValue(),
+        toLocation: getToLocationValue(),
         goodsDesc: document.getElementById('goodsDesc').value,
         isLocalIncome: isLocalIncome,
         addToDriverSalary: addToDriverSalary,
